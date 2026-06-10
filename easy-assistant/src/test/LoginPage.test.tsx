@@ -1,0 +1,107 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import LoginPage from '../app/components/pages/LoginPage';
+import { AuthProvider } from '../app/context/AuthContext';
+import AuthGuard from '../app/components/guards/AuthGuard';
+import { click, getByTestId, getByText, render, waitFor } from './test-utils';
+
+const AUTH_STORAGE_KEY = 'easy_assistant_auth';
+
+function LocationProbe() {
+  const location = useLocation();
+  return <p data-testid="location">{location.pathname}</p>;
+}
+
+function changeInput(input: HTMLInputElement, value: string) {
+  act(() => {
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function submitForm(form: HTMLFormElement) {
+  act(() => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  });
+}
+
+describe('LoginPage', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('renders the login form and toggles password visibility', () => {
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter>
+          <LoginPage />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const emailInput = container.querySelector<HTMLInputElement>('#email');
+    const passwordInput = container.querySelector<HTMLInputElement>('#password');
+    const showPasswordButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show password"]',
+    );
+
+    if (!emailInput || !passwordInput || !showPasswordButton) {
+      throw new Error('Expected login form controls to render.');
+    }
+
+    expect(getByText(container, 'Welcome Back')).toBeInTheDocument();
+    expect(emailInput).toHaveAttribute('type', 'email');
+    expect(passwordInput).toHaveAttribute('type', 'password');
+
+    click(showPasswordButton);
+
+    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(container.querySelector('button[aria-label="Hide password"]')).toBeInTheDocument();
+  });
+
+  it('authenticates before navigating to the guarded dashboard', async () => {
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/login']}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <AuthGuard>
+                  <h1>Private dashboard</h1>
+                  <LocationProbe />
+                </AuthGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    const emailInput = container.querySelector<HTMLInputElement>('#email');
+    const passwordInput = container.querySelector<HTMLInputElement>('#password');
+    const form = container.querySelector('form');
+
+    if (!emailInput || !passwordInput || !form) {
+      throw new Error('Expected login form controls to render.');
+    }
+
+    changeInput(emailInput, 'demo@example.com');
+    changeInput(passwordInput, 'password');
+    submitForm(form);
+
+    await waitFor(() => {
+      expect(getByText(container, 'Private dashboard')).toBeInTheDocument();
+      expect(getByTestId(container, 'location')).toHaveTextContent('/dashboard');
+      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBe('true');
+    });
+  });
+});
