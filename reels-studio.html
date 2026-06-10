@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>ReelStudio — AI Content Automation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0f;
+  --surface:#17171a;
+  --surface2:#1f1f23;
+  --surface3:#28282e;
+  --border:#2e2e35;
+  --border2:#3a3a42;
+  --text:#f0f0f2;
+  --text2:#9898a8;
+  --text3:#5a5a6a;
+  --accent:#7c6dfa;
+  --accent2:#5b4ef0;
+  --green:#2dd4a0;
+  --amber:#f0a030;
+  --red:#f05060;
+  --blue:#4ab0f5;
+  --sidebar:220px;
+  --radius:10px;
+  --font:'DM Sans',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex;font-size:14px;line-height:1.6}
+
+/* SIDEBAR */
+aside{width:var(--sidebar);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff;flex-shrink:0}
+.logo-text{font-size:14px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px}
+nav{flex:1;padding:10px 8px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.nav-section{font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;padding:10px 8px 4px;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;transition:all .15s;color:var(--text2);font-size:13px;font-weight:400;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent);color:#fff}
+.nav-item.active .nav-step{background:rgba(255,255,255,.2);color:#fff}
+.nav-step{width:18px;height:18px;border-radius:5px;background:var(--surface3);color:var(--text3);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--mono)}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;margin-left:auto}
+.nav-dot.amber{background:var(--amber)}
+.sidebar-footer{padding:12px 8px;border-top:1px solid var(--border)}
+.api-badge{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:7px;background:var(--surface2);font-size:11px;color:var(--text2)}
+.api-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* MAIN */
+main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;letter-spacing:-0.2px}
+.topbar-sub{font-size:12px;color:var(--text3)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-free{background:rgba(45,212,160,.12);color:var(--green)}
+.badge-ai{background:rgba(124,109,250,.15);color:var(--accent)}
+.badge-human{background:rgba(240,160,48,.12);color:var(--amber)}
+.content{flex:1;overflow-y:auto;padding:28px 32px}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:600;letter-spacing:-0.1px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title .icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.icon-purple{background:rgba(124,109,250,.15);color:var(--accent)}
+.icon-green{background:rgba(45,212,160,.12);color:var(--green)}
+.icon-amber{background:rgba(240,160,48,.12);color:var(--amber)}
+.icon-blue{background:rgba(74,176,245,.12);color:var(--blue)}
+
+/* FORM */
+label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500}
+input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color .15s;resize:vertical}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{min-height:80px}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:7px;border:none;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface3);color:var(--text)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+
+/* OUTPUT AREA */
+.output-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:13px;line-height:1.8;color:var(--text);min-height:80px;white-space:pre-wrap;font-family:var(--mono);position:relative}
+.output-box.loading::after{content:'';position:absolute;bottom:10px;right:12px;width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.copy-btn{position:absolute;top:8px;right:8px;background:var(--surface3);border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--font)}
+.copy-btn:hover{color:var(--text)}
+
+/* IDEA CARDS */
+.ideas-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.idea-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:all .15s}
+.idea-card:hover{border-color:var(--accent);background:var(--surface3)}
+.idea-card.selected{border-color:var(--accent);background:rgba(124,109,250,.08)}
+.idea-num{font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px}
+.idea-hook{font-size:13px;font-weight:500;line-height:1.4;margin-bottom:6px}
+.idea-meta{display:flex;gap:6px;flex-wrap:wrap}
+.tag{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;background:var(--surface3);color:var(--text3)}
+
+/* PLATFORM TABS */
+.platform-tabs{display:flex;gap:6px;margin-bottom:16px}
+.p-tab{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text2);transition:all .15s}
+.p-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* EXTERNAL LINKS */
+.ext-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.ext-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;text-decoration:none;transition:all .15s;display:block}
+.ext-card:hover{border-color:var(--border2);background:var(--surface3)}
+.ext-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px}
+.ext-desc{font-size:11px;color:var(--text3);line-height:1.4;margin-bottom:8px}
+.ext-price{font-size:10px;font-weight:500}
+
+/* CHECKLIST */
+.checklist{display:flex;flex-direction:column;gap:8px}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:7px;border:1px solid var(--border);cursor:pointer}
+.check-item.checked{opacity:.6}
+.check-box{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;margin-top:1px}
+.check-item.checked .check-box{background:var(--green);border-color:var(--green);color:#000}
+.check-label{font-size:13px;line-height:1.4}
+.check-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* PROGRESS BAR */
+.progress-strip{display:flex;gap:4px;margin-bottom:24px}
+.progress-step{flex:1;height:3px;border-radius:2px;background:var(--surface3);transition:background .3s}
+.progress-step.done{background:var(--green)}
+.progress-step.current{background:var(--accent)}
+
+/* TOOLTIP */
+.tip-box{background:rgba(45,212,160,.08);border:1px solid rgba(45,212,160,.2);border-radius:7px;padding:10px 14px;font-size:12px;color:var(--green);margin-top:12px;line-height:1.5}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* WELCOME */
+.welcome{text-align:center;padding:60px 40px}
+.welcome h1{font-size:28px;font-weight:600;letter-spacing:-0.5px;margin-bottom:10px}
+.welcome p{color:var(--text2);font-size:14px;line-height:1.7;max-width:480px;margin:0 auto 28px}
+.feature-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:left;margin-top:28px}
+.feature{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.feature-icon{font-size:20px;margin-bottom:8px}
+.feature-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.feature-desc{font-size:12px;color:var(--text3);line-height:1.5}
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="logo">
+    <div class="logo-icon">R</div>
+    <div>
+      <div class="logo-text">ReelStudio</div>
+      <div class="logo-sub">AI Automation</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-section">Workflow</div>
+    <button class="nav-item active" onclick="goto(0)" id="nav0">
+      <div class="nav-step">0</div> Setup & Brand Brief
+    </button>
+    <button class="nav-item" onclick="goto(1)" id="nav1">
+      <div class="nav-step">1</div> Ideation
+    </button>
+    <button class="nav-item" onclick="goto(2)" id="nav2">
+      <div class="nav-step">2</div> Script Writer
+    </button>
+    <button class="nav-item" onclick="goto(3)" id="nav3">
+      <div class="nav-step">3</div> Voice & Visuals
+    </button>
+    <button class="nav-item" onclick="goto(4)" id="nav4">
+      <div class="nav-step">4</div> Captions & Hashtags
+    </button>
+    <button class="nav-item" onclick="goto(5)" id="nav5">
+      <div class="nav-step">5</div> Review Checklist
+    </button>
+    <button class="nav-item" onclick="goto(6)" id="nav6">
+      <div class="nav-step">6</div> Analytics Digest
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="api-badge"><div class="api-dot"></div> Claude API connected</div>
+  </div>
+</aside>
+
+<main>
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">Setup & Brand Brief</div>
+      <div class="topbar-sub" id="page-sub">Configure your brand once, used everywhere</div>
+    </div>
+    <div class="topbar-right">
+      <span class="badge badge-free">Free tier</span>
+      <span class="badge badge-ai" id="ai-badge" style="display:none">AI step</span>
+      <span class="badge badge-human" id="human-badge" style="display:none">Human step</span>
+    </div>
+  </div>
+
+  <div class="content" id="content-area">
+    <!-- Rendered by JS -->
+  </div>
+</main>
+
+<script>
+const API_URL = "https://api.anthropic.com/v1/messages";
+const MODEL = "claude-sonnet-4-20250514";
+
+// Global state
+const S = {
+  brief: { niche:"", tone:"", audience:"", goals:"", schedule:"", competitors:"", keywords:"" },
+  ideas: [],
+  selectedIdea: null,
+  script: "",
+  captions: { tiktok:"", instagram:"", youtube:"" },
+  checklist: [false,false,false,false,false,false],
+};
+
+const pages = [
+  { title:"Setup & Brand Brief", sub:"Configure your brand once, used everywhere", ai:false, human:true },
+  { title:"Ideation", sub:"AI generates & scores video concepts for your niche", ai:true, human:false },
+  { title:"Script Writer", sub:"AI writes full hook + body + CTA scripts", ai:true, human:false },
+  { title:"Voice & Visuals", sub:"Free tools to generate voice and visuals", ai:false, human:false },
+  { title:"Captions & Hashtags", sub:"Platform-optimised copy for every channel", ai:true, human:false },
+  { title:"Review Checklist", sub:"Quick quality gate before you publish", ai:false, human:true },
+  { title:"Analytics Digest", sub:"Paste metrics — AI extracts what worked", ai:true, human:false },
+];
+
+let currentPage = 0;
+
+function goto(n) {
+  currentPage = n;
+  document.querySelectorAll('.nav-item').forEach((el,i) => el.classList.toggle('active', i===n));
+  document.getElementById('page-title').textContent = pages[n].title;
+  document.getElementById('page-sub').textContent = pages[n].sub;
+  document.getElementById('ai-badge').style.display = pages[n].ai ? '' : 'none';
+  document.getElementById('human-badge').style.display = pages[n].human ? '' : 'none';
+  renderPage(n);
+}
+
+function renderPage(n) {
+  const el = document.getElementById('content-area');
+  el.scrollTop = 0;
+  const renders = [renderBrief, renderIdeation, renderScript, renderVoice, renderCaptions, renderReview, renderAnalytics];
+  el.innerHTML = '';
+  renders[n](el);
+}
+
+// ── PROGRESS BAR ──────────────────────────────────────────────
+function progressBar(current) {
+  const div = document.createElement('div');
+  div.className = 'progress-strip';
+  for(let i=0;i<7;i++){
+    const s = document.createElement('div');
+    s.className = 'progress-step' + (i<current?' done':i===current?' current':'');
+    div.appendChild(s);
+  }
+  return div;
+}
+
+// ── PAGE 0: BRIEF ─────────────────────────────────────────────
+function renderBrief(el) {
+  el.appendChild(progressBar(0));
+  el.innerHTML += `
+  <div class="card">
+    <div class="card-title"><div class="icon icon-purple">✦</div> Brand Brief</div>
+    <div class="row field">
+      <div><label>Niche / Industry</label><input id="f-niche" placeholder="e.g. Personal finance, fitness, cooking…" value="${S.brief.niche}"/></div>
+      <div><label>Brand Tone</label>
+        <select id="f-tone">
+          <option value="">Select tone…</option>
+          ${["Educational","Entertaining","Motivational","Funny/Witty","Professional","Raw/Authentic","Luxury","Minimalist"].map(t=>`<option ${S.brief.tone===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Target Audience</label><input id="f-audience" placeholder="e.g. Women 25–35 interested in budgeting and financial freedom" value="${S.brief.audience}"/></div>
+    <div class="field"><label>Content Goals</label><input id="f-goals" placeholder="e.g. Grow followers, drive newsletter signups, sell digital product" value="${S.brief.goals}"/></div>
+    <div class="row field">
+      <div><label>Posting Schedule</label>
+        <select id="f-schedule">
+          <option value="">Select…</option>
+          ${["1x per week","3x per week","Daily","2x daily"].map(t=>`<option ${S.brief.schedule===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div><label>Main Competitors / Inspirations</label><input id="f-comp" placeholder="e.g. @GrahamStephan, @AliAbdaal" value="${S.brief.competitors}"/></div>
+    </div>
+    <div class="field"><label>Keywords / Topics to cover</label><textarea id="f-kw" placeholder="e.g. budgeting tips, investing for beginners, saving money hacks, side hustles">${S.brief.keywords}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveBrief()">Save Brief & Continue →</button>
+    </div>
+  </div>
+  <div class="tip-box">💡 Fill this out once. Every AI step (ideation, scripts, captions) will automatically use your brief — no copy-pasting needed.</div>`;
+}
+function saveBrief() {
+  S.brief.niche = document.getElementById('f-niche').value;
+  S.brief.tone = document.getElementById('f-tone').value;
+  S.brief.audience = document.getElementById('f-audience').value;
+  S.brief.goals = document.getElementById('f-goals').value;
+  S.brief.schedule = document.getElementById('f-schedule').value;
+  S.brief.competitors = document.getElementById('f-comp').value;
+  S.brief.keywords = document.getElementById('f-kw').value;
+  if(!S.brief.niche){ alert('Please enter a niche first'); return; }
+  goto(1);
+}
+
+// ── PAGE 1: IDEATION ──────────────────────────────────────────
+function renderIdeation(el) {
+  el.appendChild(progressBar(1));
+  el.innerHTML += `
+  <div class="card">
+    <div class="card-title"><div class="icon icon-purple">✦</div> What's trending this week? (optional)</div>
+    <div class="field"><label>Trending topics or hooks you've spotted</label><input id="f-trend" placeholder="e.g. 'I saved $10k in 6 months doing this…', viral savings challenge"/></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="ideate-btn" onclick="runIdeation()">Generate 6 Ideas with AI →</button>
+    </div>
+  </div>
+  <div id="ideas-output"></div>`;
+  if(S.ideas.length) renderIdeasList(document.getElementById('ideas-output'));
+}
+
+async function runIdeation() {
+  const btn = document.getElementById('ideate-btn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  const trend = document.getElementById('f-trend')?.value || '';
+  const b = S.brief;
+  const prompt = `You are a short-form video content strategist. Generate exactly 6 short-form video concepts (TikTok/Instagram Reels/YouTube Shorts) for this brand.
+
+Brand Brief:
+- Niche: ${b.niche}
+- Tone: ${b.tone}
+- Audience: ${b.audience}
+- Goals: ${b.goals}
+- Keywords: ${b.keywords}
+- Competitors/Inspiration: ${b.competitors}
+${trend ? `- Trending angle this week: ${trend}` : ''}
+
+Return ONLY valid JSON array, no markdown, no explanation:
+[
+  {
+    "num": 1,
+    "hook": "Opening hook line (max 12 words, very punchy)",
+    "concept": "2-sentence concept description",
+    "format": "e.g. Listicle / Story / Tutorial / Challenge / POV",
+    "duration": "e.g. 30s / 45s / 60s",
+    "cta": "Call to action",
+    "score": 85
+  }
+]`;
+  try {
+    const res = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data = await res.json();
+    let text = data.content?.find(c=>c.type==='text')?.text || '[]';
+    text = text.replace(/```json|```/g,'').trim();
+    S.ideas = JSON.parse(text);
+    const out = document.getElementById('ideas-output');
+    out.innerHTML = '';
+    renderIdeasList(out);
+  } catch(e) {
+    document.getElementById('ideas-output').innerHTML = `<div class="tip-box" style="color:var(--red);border-color:rgba(240,80,96,.2);background:rgba(240,80,96,.05)">Error: ${e.message}. Check console.</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Regenerate Ideas →';
+}
+
+function renderIdeasList(el) {
+  if(!S.ideas.length) return;
+  const title = document.createElement('div');
+  title.className = 'card-title'; title.style.marginBottom='10px';
+  title.innerHTML = '<div class="icon icon-green">★</div> Select an idea to script';
+  el.appendChild(title);
+  const grid = document.createElement('div');
+  grid.className = 'ideas-grid';
+  S.ideas.forEach((idea,i) => {
+    const c = document.createElement('div');
+    c.className = 'idea-card' + (S.selectedIdea===i?' selected':'');
+    c.innerHTML = `<div class="idea-num">IDEA ${idea.num} &nbsp;·&nbsp; Score ${idea.score}/100</div>
+      <div class="idea-hook">"${idea.hook}"</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${idea.concept}</div>
+      <div class="idea-meta">
+        <span class="tag">${idea.format}</span>
+        <span class="tag">${idea.duration}</span>
+      </div>`;
+    c.onclick = () => { S.selectedIdea = i; document.querySelectorAll('.idea-card').forEach((x,j)=>x.classList.toggle('selected',j===i)); };
+    grid.appendChild(c);
+  });
+  el.appendChild(grid);
+  const row = document.createElement('div');
+  row.className = 'btn-row';
+  row.innerHTML = `<button class="btn btn-primary" onclick="if(S.selectedIdea!==null)goto(2);else alert('Select an idea first')">Write Script for Selected Idea →</button>`;
+  el.appendChild(row);
+}
+
+// ── PAGE 2: SCRIPT ────────────────────────────────────────────
+function renderScript(el) {
+  el.appendChild(progressBar(2));
+  const idea = S.ideas[S.selectedIdea] || null;
+  el.innerHTML += `
+  <div class="card">
+    <div class="card-title"><div class="icon icon-purple">✦</div> Script Settings</div>
+    ${idea ? `<div class="tip-box" style="margin-bottom:12px">Using idea: <strong>"${idea.hook}"</strong> · ${idea.format} · ${idea.duration}</div>` : ''}
+    <div class="row field">
+      <div><label>Video Duration</label>
+        <select id="sc-dur">
+          ${["15s","30s","45s","60s","90s"].map(d=>`<option ${idea?.duration===d?'selected':''}>${d}</option>`).join('')}
+        </select>
+      </div>
+      <div><label>Style</label>
+        <select id="sc-style">
+          ${["Voiceover (no talking head)","Talking head","Text on screen only","Hybrid"].map(s=>`<option>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Extra notes (optional)</label><input id="sc-notes" placeholder="e.g. Mention my free guide, keep it relatable, use simple language"/></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="script-btn" onclick="runScript()">Generate Full Script →</button>
+    </div>
+  </div>
+  <div id="script-output"></div>`;
+  if(S.script) renderScriptOutput(document.getElementById('script-output'), S.script);
+}
+
+async function runScript() {
+  const btn = document.getElementById('script-btn');
+  btn.disabled = true; btn.textContent = 'Writing…';
+  const idea = S.ideas[S.selectedIdea];
+  const dur = document.getElementById('sc-dur').value;
+  const style = document.getElementById('sc-style').value;
+  const notes = document.getElementById('sc-notes').value;
+  const b = S.brief;
+  const prompt = `Write a complete short-form video script for the following:
+
+Brand: ${b.niche} | Tone: ${b.tone} | Audience: ${b.audience}
+Idea hook: ${idea?.hook || 'General content'}
+Concept: ${idea?.concept || ''}
+CTA: ${idea?.cta || 'Follow for more'}
+Duration: ${dur} | Style: ${style}
+Extra: ${notes}
+
+Format the script EXACTLY like this (use plain text, no markdown):
+
+[HOOK — 0-3s]
+<the opening line / visual>
+
+[BODY — 3-${dur}]
+<main content broken into bullet points or scenes>
+
+[CTA — last 3s]
+<call to action>
+
+[VISUAL NOTES]
+<brief suggestions for B-roll, text overlays, transitions>
+
+[VOICEOVER SCRIPT]
+<clean read-aloud version for ElevenLabs, no stage directions>`;
+
+  const out = document.getElementById('script-output');
+  out.innerHTML = '<div class="output-box loading" style="min-height:200px;color:var(--text3)">Generating script…</div>';
+  try {
+    const res = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,max_tokens:1200,messages:[{role:'user',content:prompt}]})});
+    const data = await res.json();
+    S.script = data.content?.find(c=>c.type==='text')?.text || '';
+    out.innerHTML = '';
+    renderScriptOutput(out, S.script);
+  } catch(e) {
+    out.innerHTML = `<div class="tip-box" style="color:var(--red)">Error: ${e.message}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Regenerate Script →';
+}
+
+function renderScriptOutput(el, text) {
+  el.innerHTML = `<div class="card"><div class="card-title"><div class="icon icon-green">✎</div> Generated Script</div>
+  <div class="output-box" style="position:relative">${escHtml(text)}<button class="copy-btn" onclick="copyText(this,'${escQ(text)}')">Copy</button></div>
+  <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="goto(3)">Next: Voice & Visuals →</button><button class="btn btn-ghost btn-sm" onclick="copyVoiceover('${escQ(text)}')">Copy Voiceover Only</button></div></div>`;
+}
+
+// ── PAGE 3: VOICE & VISUALS ────────────────────────────────────
+function renderVoice(el) {
+  el.appendChild(progressBar(3));
+  el.innerHTML += `
+  <div class="card">
+    <div class="card-title"><div class="icon icon-blue">🎙</div> Step 1 — Generate Voiceover (Free)</div>
+    <div class="tip-box" style="margin-bottom:14px">Copy the VOICEOVER SCRIPT from Step 2 and paste it into ElevenLabs. 10,000 free chars/month ≈ 20 reels.</div>
+    <div class="ext-grid">
+      <a class="ext-card" href="https://elevenlabs.io" target="_blank"><div class="ext-name">ElevenLabs</div><div class="ext-desc">Best AI voice quality. Free 10k chars/mo</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://murf.ai" target="_blank"><div class="ext-name">Murf AI</div><div class="ext-desc">Free plan, studio-quality voices</div><span class="ext-price badge-free badge">Free trial</span></a>
+      <a class="ext-card" href="https://ttsmaker.com" target="_blank"><div class="ext-name">TTSMaker</div><div class="ext-desc">Unlimited free TTS, many voices</div><span class="ext-price badge-free badge">Free</span></a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><div class="icon icon-blue">🎬</div> Step 2 — Get Free Stock Visuals</div>
+    <div class="ext-grid">
+      <a class="ext-card" href="https://pexels.com/videos" target="_blank"><div class="ext-name">Pexels Videos</div><div class="ext-desc">HD stock video, no attribution needed</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://pixabay.com/videos" target="_blank"><div class="ext-name">Pixabay Videos</div><div class="ext-desc">Large free library, commercial use ok</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://mixkit.co" target="_blank"><div class="ext-name">Mixkit</div><div class="ext-desc">Free video clips + templates</div><span class="ext-price badge-free badge">Free</span></a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><div class="icon icon-blue">✂️</div> Step 3 — Assemble the Reel (Free)</div>
+    <div class="ext-grid">
+      <a class="ext-card" href="https://www.capcut.com" target="_blank"><div class="ext-name">CapCut (Desktop)</div><div class="ext-desc">Auto-captions, transitions, B-roll sync, templates — best free option</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://www.canva.com/video-editor" target="_blank"><div class="ext-name">Canva Video</div><div class="ext-desc">Great for text-heavy reels and branded templates</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://invideo.io" target="_blank"><div class="ext-name">InVideo AI</div><div class="ext-desc">Text-to-video — paste script, get video</div><span class="ext-price badge-free badge">4 exports/wk free</span></a>
+    </div>
+  </div>
+  <div class="btn-row"><button class="btn btn-primary" onclick="goto(4)">Next: Captions & Hashtags →</button></div>`;
+}
+
+// ── PAGE 4: CAPTIONS ──────────────────────────────────────────
+function renderCaptions(el) {
+  el.appendChild(progressBar(4));
+  let activePlatform = 'tiktok';
+  el.innerHTML += `
+  <div class="card">
+    <div class="card-title"><div class="icon icon-purple">✦</div> Generate Captions & Hashtags</div>
+    <div class="field"><label>Video topic / what the reel covers (or paste your hook)</label>
+      <input id="cap-topic" placeholder="e.g. 3 budgeting mistakes that kept me broke in my 20s" value="${S.ideas[S.selectedIdea]?.hook||''}"/></div>
+    <div class="btn-row"><button class="btn btn-primary" id="cap-btn" onclick="runCaptions()">Generate for All Platforms →</button></div>
+  </div>
+  <div id="captions-output"></div>`;
+  if(S.captions.tiktok) renderCaptionOutput(document.getElementById('captions-output'));
+}
+
+async function runCaptions() {
+  const btn = document.getElementById('cap-btn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  const topic = document.getElementById('cap-topic').value || S.ideas[S.selectedIdea]?.hook || 'general content';
+  const b = S.brief;
+  const prompt = `Write social media captions for this video. Return ONLY JSON, no markdown:
+{
+  "tiktok": {
+    "caption": "120-word TikTok caption with storytelling hook, conversational, emoji-rich",
+    "hashtags": ["tag1","tag2",...20 hashtags without #, mix of niche+broad+trending]
+  },
+  "instagram": {
+    "caption": "150-word Instagram caption, slightly more polished, line breaks for readability",
+    "hashtags": ["tag1","tag2",...25 hashtags]
+  },
+  "youtube": {
+    "caption": "200-word YouTube Shorts description, keyword-rich for search, include CTA",
+    "hashtags": ["tag1","tag2",...10 hashtags]
+  }
+}
+
+Brand: ${b.niche} | Tone: ${b.tone} | Audience: ${b.audience}
+Video topic: ${topic}
+Goals: ${b.goals}`;
+
+  const out = document.getElementById('captions-output');
+  out.innerHTML = '<div class="output-box loading" style="min-height:80px;color:var(--text3)">Generating captions…</div>';
+  try {
+    const res = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data = await res.json();
+    let text = data.content?.find(c=>c.type==='text')?.text || '{}';
+    text = text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(text);
+    S.captions = {
+      tiktok: (parsed.tiktok?.caption||'') + '\n\n' + (parsed.tiktok?.hashtags||[]).map(h=>'#'+h).join(' '),
+      instagram: (parsed.instagram?.caption||'') + '\n\n' + (parsed.instagram?.hashtags||[]).map(h=>'#'+h).join(' '),
+      youtube: (parsed.youtube?.caption||'') + '\n\n' + (parsed.youtube?.hashtags||[]).map(h=>'#'+h).join(' '),
+    };
+    out.innerHTML = '';
+    renderCaptionOutput(out);
+  } catch(e) {
+    out.innerHTML = `<div class="tip-box" style="color:var(--red)">Error: ${e.message}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Regenerate →';
+}
+
+function renderCaptionOutput(el) {
+  let active = 'tiktok';
+  const platforms = [{id:'tiktok',label:'TikTok'},{id:'instagram',label:'Instagram'},{id:'youtube',label:'YouTube Shorts'}];
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.innerHTML = `<div class="card-title"><div class="icon icon-green">✎</div> Platform Captions</div>
+    <div class="platform-tabs" id="ptabs">
+      ${platforms.map(p=>`<div class="p-tab${p.id===active?' active':''}" onclick="switchPlatform('${p.id}')">${p.label}</div>`).join('')}
+    </div>
+    <div id="cap-content"></div>`;
+  el.appendChild(wrap);
+  showPlatformCaption(active);
+}
+
+function switchPlatform(p) {
+  document.querySelectorAll('.p-tab').forEach(t=>t.classList.toggle('active',t.textContent.toLowerCase().replace(' shorts','')===p.replace('youtube','youtube')));
+  document.querySelectorAll('.p-tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  showPlatformCaption(p);
+}
+function showPlatformCaption(p) {
+  const text = S.captions[p] || '';
+  const el = document.getElementById('cap-content');
+  if(el) el.innerHTML = `<div class="output-box" style="position:relative">${escHtml(text)}<button class="copy-btn" onclick="copyText(this,'${escQ(text)}')">Copy</button></div>
+    <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="goto(5)">Next: Review →</button></div>`;
+}
+
+// ── PAGE 5: REVIEW ────────────────────────────────────────────
+function renderReview(el) {
+  el.appendChild(progressBar(5));
+  const items = [
+    { label:'Hook lands in first 2 seconds', sub:'Is the opening line punchy enough to stop the scroll?' },
+    { label:'Captions are accurate', sub:'Check auto-captions in CapCut for errors before export' },
+    { label:'Audio is clear, no clipping', sub:'Listen through once at normal volume' },
+    { label:'Brand tone is consistent', sub:'Does it sound like you / your brand?' },
+    { label:'CTA is clear', sub:'Is it obvious what the viewer should do next?' },
+    { label:'Caption & hashtags copied', sub:'Ready to paste into TikTok, Instagram, YouTube Shorts' },
+  ];
+  el.innerHTML += `<div class="card">
+    <div class="card-title"><div class="icon icon-amber">✓</div> Pre-Publish Checklist</div>
+    <div class="checklist" id="checklist">
+    ${items.map((item,i)=>`
+      <div class="check-item${S.checklist[i]?' checked':''}" onclick="toggleCheck(${i})">
+        <div class="check-box">${S.checklist[i]?'✓':''}</div>
+        <div><div class="check-label">${item.label}</div><div class="check-sub">${item.sub}</div></div>
+      </div>`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="goto(3)">← Back to Voice & Visuals</button>
+      <button class="btn btn-ghost" onclick="goto(6)">View Analytics Setup →</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><div class="icon icon-blue">📤</div> Schedule & Publish (Free)</div>
+    <div class="ext-grid">
+      <a class="ext-card" href="https://buffer.com" target="_blank"><div class="ext-name">Buffer</div><div class="ext-desc">3 channels, unlimited posts — IG + TikTok + 1 more</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://business.facebook.com" target="_blank"><div class="ext-name">Meta Business Suite</div><div class="ext-desc">Schedule Instagram Reels + Facebook natively</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://www.tiktok.com/creator-center" target="_blank"><div class="ext-name">TikTok Scheduler</div><div class="ext-desc">Built-in, schedule up to 10 days ahead</div><span class="ext-price badge-free badge">Free</span></a>
+      <a class="ext-card" href="https://studio.youtube.com" target="_blank"><div class="ext-name">YouTube Studio</div><div class="ext-desc">Schedule Shorts directly from YouTube Studio</div><span class="ext-price badge-free badge">Free</span></a>
+    </div>
+  </div>`;
+}
+function toggleCheck(i) {
+  S.checklist[i] = !S.checklist[i];
+  renderPage(5);
+}
+
+// ── PAGE 6: ANALYTICS ─────────────────────────────────────────
+function renderAnalytics(el) {
+  el.appendChild(progressBar(6));
+  el.innerHTML += `
+  <div class="card">
+    <div class="card-title"><div class="icon icon-purple">✦</div> Paste Your Performance Data</div>
+    <div class="field"><label>Paste metrics from TikTok Studio / IG Insights / YouTube Studio</label>
+      <textarea id="ana-data" style="min-height:140px" placeholder="e.g.
+Reel 1: 'I saved $10k doing this' — 48k views, 3.2% like rate, 890 shares, 12s avg watch time
+Reel 2: '5 money mistakes' — 12k views, 1.8% like rate, 120 shares, 8s avg watch time
+Reel 3: 'Budget with me' — 95k views, 5.1% like rate, 2,400 shares, 22s avg watch time"></textarea></div>
+    <div class="btn-row"><button class="btn btn-primary" id="ana-btn" onclick="runAnalytics()">Analyse with AI →</button></div>
+  </div>
+  <div id="ana-output"></div>`;
+}
+
+async function runAnalytics() {
+  const btn = document.getElementById('ana-btn');
+  btn.disabled = true; btn.textContent = 'Analysing…';
+  const data = document.getElementById('ana-data').value;
+  const b = S.brief;
+  const prompt = `You are a social media analytics expert. Analyse this performance data for a ${b.niche} creator.
+
+Data:
+${data}
+
+Provide:
+1. TOP INSIGHT: What specifically made the best-performing video win?
+2. WHAT TO DO MORE: 2-3 specific, actionable content directions to double down on
+3. WHAT TO AVOID: 1-2 patterns in the underperformers
+4. NEXT VIDEO BRIEF: A ready-to-use brief for the next video based on what worked
+5. UPDATED HOOK ANGLE: A punchy new hook idea using the winning formula
+
+Be specific, not generic. Reference the actual data.`;
+
+  const out = document.getElementById('ana-output');
+  out.innerHTML = '<div class="output-box loading" style="min-height:120px;color:var(--text3)">Analysing your data…</div>';
+  try {
+    const res = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MODEL,max_tokens:900,messages:[{role:'user',content:prompt}]})});
+    const d = await res.json();
+    const text = d.content?.find(c=>c.type==='text')?.text || '';
+    out.innerHTML = `<div class="card"><div class="card-title"><div class="icon icon-green">★</div> AI Insights</div>
+      <div class="output-box" style="position:relative">${escHtml(text)}<button class="copy-btn" onclick="copyText(this,'${escQ(text)}')">Copy</button></div>
+      <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="goto(1)">Use insights → Generate new ideas ↗</button></div>
+    </div>`;
+  } catch(e) {
+    out.innerHTML = `<div class="tip-box" style="color:var(--red)">Error: ${e.message}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Re-analyse →';
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escQ(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n'); }
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text.replace(/\\n/g,'\n').replace(/\\'/g,"'"));
+  btn.textContent = 'Copied!';
+  setTimeout(()=>btn.textContent='Copy',2000);
+}
+function copyVoiceover(text) {
+  const raw = text.replace(/\\n/g,'\n').replace(/\\'/g,"'");
+  const match = raw.match(/\[VOICEOVER SCRIPT\]([\s\S]*?)($|\[)/);
+  const vo = match ? match[1].trim() : raw;
+  navigator.clipboard.writeText(vo);
+  alert('Voiceover script copied!');
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+goto(0);
+</script>
+</body>
+</html>
