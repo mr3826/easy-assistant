@@ -151,6 +151,15 @@ npm run dev
 
 Opens at **http://localhost:5173**
 
+### Backend Runtime
+
+```bash
+npm run backend:dev
+```
+
+Starts the phase-1 backend server on **http://localhost:3000** by default.
+Keep `API_BASE_URL` and `VITE_API_BASE_URL` pointed at the same `/api` prefix.
+
 ### Type Check
 
 ```bash
@@ -176,6 +185,15 @@ npm run lint
 ```bash
 npm run test:run
 ```
+
+### Backend Checks
+
+```bash
+npm run backend:test
+```
+
+Runs the focused auth/session and backend contract tests that verify the phase-1
+foundation.
 
 ### Preview Production Build
 
@@ -250,7 +268,7 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 - **CVA**: button and badge variants via `class-variance-authority`
 - **Forms**: `react-hook-form` + `zod` (`@hookform/resolvers`)
 - **Lazy loading**: all pages loaded via `React.lazy` + `Suspense` in `App.tsx`
-- **Auth**: `AuthContext` + `AuthGuard` pattern; session persisted to `localStorage`
+- **Auth**: `AuthContext` + `AuthGuard` pattern; session is API-backed and cookie-based
 - **`as any`**: intentionally placed around recharts `Payload` — `Payload<ValueType, NameType>` is unexported from `recharts` types
 - **Figma assets**: `figmaAssetResolver()` in `vite.config.ts` resolves `figma:asset/*` imports to `src/assets/*`
 
@@ -283,7 +301,7 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 | Entry | `src/main.tsx` | ✅ Clean, 5-line `createRoot` |
 | Routing | `src/app/App.tsx` | ✅ 16 lazy-loaded routes, Suspense, AuthGuard wrapping |
 | Layout | `DashboardLayout.tsx` | ✅ Bespoke sidebar + topbar; `useState`-driven mobile drawer |
-| auth | `AuthContext.tsx` | ⚠️ Stub — always returns `true` on login |
+| auth | `AuthContext.tsx` | ✅ API-backed session hydration, login, logout, and signup |
 | Guards | `AuthGuard.tsx`, `index.tsx` | ✅ Redirect-to-login + `ProtectedRoute` + `LoadingFallback` |
 | Hooks | 4 custom hooks | ✅ `useDebounce`, `useLocalStorage`, `useMediaQuery`, `useOnClickOutside` |
 | Constants | `LABELS`, `ROUTES` | ✅ `as const` inference |
@@ -310,7 +328,7 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 | `LoginPage` — empty `catch {}` | 🟡 Medium | `onSubmit: catch { /* handle error */ }` — swallows any API failure silently. At minimum add `console.error(err)` or an error toast. |
 | `LoginPage` — manual password toggle button | 🟢 Low | Password visibility toggle is a plain `<button>` rather than using the `Input` suffix pattern. Not a bug — stylistic inconsistency. |
 | `SignupPage/ServicesSetup/StaffManagement` — no validation | 🟢 Low | Password fields, select fields, and contact fields have no Zod schema. UI-only stub data. |
-| `DashboardLayout` — hardcoded user "John Doe" | 🟢 Low | Avatar/name not connected to `AuthContext`. |
+| `DashboardLayout` — hardcoded user "John Doe" | 🟢 Low | Avatar/name is still hardcoded instead of reading from `AuthContext`. |
 | All pages — placeholder data | 🟢 Info | All 16 pages render static mock arrays; no API layer yet. |
 
 ---
@@ -362,6 +380,8 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 ---
 
 ## Next Steps
+
+This list is historical context from the pre-phase-1 audit; items 5 and 6 have now been addressed by the backend/auth pass.
 
 1. Resolve the `default_theme.css` vs `globals.css` theme duplication — pick a single source of truth.
 2. Wire `data-state` through `TabsTrigger` for reliable active-state styling.

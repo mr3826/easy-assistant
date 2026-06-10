@@ -10,6 +10,8 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
+    "backend:dev": "node server/index.mjs",
+    "backend:test": "vitest run src/test/auth-api.test.ts src/test/auth-session-flow.test.tsx src/test/backend-contracts.test.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },

@@ -4,14 +4,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AuthProvider, useAuth } from '../app/context/AuthContext';
 import { click, getByTestId, getByText, render, waitFor } from './test-utils';
 
-function AuthProbe() {
-  const { isAuthenticated, isLoading, session, login, signup, logout } = useAuth();
+function SessionProbe() {
+  const { session, isAuthenticated, isLoading, login, logout, refreshSession, signup } = useAuth();
   const [lastAction, setLastAction] = useState('idle');
 
   return (
     <div>
       <p data-testid="loading-state">{isLoading ? 'loading' : 'ready'}</p>
-      <p data-testid="auth-state">{isAuthenticated ? 'signed in' : 'signed out'}</p>
+      <p data-testid="session-state">{isAuthenticated ? 'authenticated' : 'anonymous'}</p>
       <p data-testid="session-user">{session?.user.email ?? 'none'}</p>
       <p data-testid="last-action">{lastAction}</p>
       <button
@@ -43,18 +43,26 @@ function AuthProbe() {
       <button
         type="button"
         onClick={() =>
-          void logout().then(() => {
-            setLastAction('logout');
+          void refreshSession().then((nextSession) => {
+            setLastAction(`refresh:${nextSession?.user.email ?? 'none'}`);
           })
         }
       >
-        Logout
+        Refresh
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void logout().then(() => setLastAction('logout'));
+        }}
+      >
+        Sign out
       </button>
     </div>
   );
 }
 
-describe('AuthProvider', () => {
+describe('auth session flow', () => {
   beforeEach(() => {
     resetAuthApiMock();
     localStorage.clear();
@@ -65,40 +73,40 @@ describe('AuthProvider', () => {
     localStorage.clear();
   });
 
-  it('hydrates session state from the API and clears it on logout', async () => {
+  it('hydrates an existing API session and clears it on logout', async () => {
     authApiState.session = createAuthSession();
 
     const { container } = render(
       <AuthProvider>
-        <AuthProbe />
+        <SessionProbe />
       </AuthProvider>,
     );
 
     await waitFor(() => {
       expect(getByTestId(container, 'loading-state')).toHaveTextContent('ready');
-      expect(getByTestId(container, 'auth-state')).toHaveTextContent('signed in');
+      expect(getByTestId(container, 'session-state')).toHaveTextContent('authenticated');
       expect(getByTestId(container, 'session-user')).toHaveTextContent('owner@example.com');
     });
 
-    click(getByText(container, 'Logout'));
+    click(getByText(container, 'Sign out'));
 
     await waitFor(() => {
-      expect(getByTestId(container, 'auth-state')).toHaveTextContent('signed out');
+      expect(getByTestId(container, 'session-state')).toHaveTextContent('anonymous');
       expect(getByTestId(container, 'session-user')).toHaveTextContent('none');
       expect(getByTestId(container, 'last-action')).toHaveTextContent('logout');
     });
   });
 
-  it('calls the API-backed login and signup helpers', async () => {
+  it('routes login, signup, and refreshSession through the API-backed session helpers', async () => {
     const { container } = render(
       <AuthProvider>
-        <AuthProbe />
+        <SessionProbe />
       </AuthProvider>,
     );
 
     await waitFor(() => {
       expect(getByTestId(container, 'loading-state')).toHaveTextContent('ready');
-      expect(getByTestId(container, 'auth-state')).toHaveTextContent('signed out');
+      expect(getByTestId(container, 'session-state')).toHaveTextContent('anonymous');
     });
 
     authApiState.loginResponse = createAuthSession({
@@ -117,7 +125,7 @@ describe('AuthProvider', () => {
     click(getByText(container, 'Login'));
 
     await waitFor(() => {
-      expect(getByTestId(container, 'auth-state')).toHaveTextContent('signed in');
+      expect(getByTestId(container, 'session-state')).toHaveTextContent('authenticated');
       expect(getByTestId(container, 'session-user')).toHaveTextContent('owner@example.com');
       expect(getByTestId(container, 'last-action')).toHaveTextContent('login:owner@example.com');
     });
@@ -164,6 +172,26 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(getByTestId(container, 'session-user')).toHaveTextContent('new-owner@example.com');
       expect(getByTestId(container, 'last-action')).toHaveTextContent('signup:new-owner@example.com');
+    });
+
+    authApiState.session = createAuthSession({
+      user: {
+        id: 'user-refresh',
+        name: 'Refreshed Owner',
+        email: 'refresh@example.com',
+        passwordHash: 'dev:password123',
+        status: 'active',
+        lastLoginAt: null,
+        createdAt: '2026-06-11T00:00:00+06:00',
+        updatedAt: '2026-06-11T00:00:00+06:00',
+      },
+    });
+
+    click(getByText(container, 'Refresh'));
+
+    await waitFor(() => {
+      expect(getByTestId(container, 'session-user')).toHaveTextContent('refresh@example.com');
+      expect(getByTestId(container, 'last-action')).toHaveTextContent('refresh:refresh@example.com');
     });
   });
 });

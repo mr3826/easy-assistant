@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Calendar, ArrowRight, ArrowLeft, Check, Building, Briefcase, Users, Clock, Share2, CreditCard, LayoutDashboard } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../ui/switch';
 import { Checkbox } from '../ui/checkbox';
 import { useAuth } from '../../context/AuthContext';
+import { LoadingFallback } from '../guards';
 
 const steps = [
   { id: 1, title: 'Business Information', icon: Building },
@@ -23,23 +24,31 @@ const steps = [
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
 
-  const handleNext = async () => {
+  const handleNext = () => {
     if (currentStep < 7) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      await login('demo@bookingai.local', 'onboarding-complete');
-      navigate('/dashboard');
+      setCurrentStep((value) => value + 1);
+      return;
     }
+
+    navigate('/dashboard', { replace: true });
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep((value) => value - 1);
     }
   };
+
+  if (isLoading) {
+    return <LoadingFallback message="Loading onboarding..." />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

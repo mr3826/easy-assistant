@@ -8,6 +8,7 @@ import { Checkbox } from '../ui/checkbox';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { z } from 'zod';
 import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
@@ -80,15 +81,16 @@ export default function LoginPage() {
     try {
       setIsSubmitting(true);
       setFormError(null);
-      const loggedIn = await login(formData.email, formData.password);
-      if (!loggedIn) {
-        setFormError('Unable to sign in with those credentials.');
-        return;
-      }
+      const session = await login(formData.email, formData.password);
       resetForm();
-      navigate('/dashboard');
-    } catch {
-      setFormError('Unable to sign in right now.');
+      const nextPath = session.nextRoute ?? (session.requiresOnboarding ? '/onboarding' : session.memberships.length > 0 ? '/dashboard' : '/onboarding');
+      navigate(nextPath, { replace: true });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setFormError('Unable to sign in with those credentials.');
+      } else {
+        setFormError('Unable to sign in right now.');
+      }
     } finally {
       setIsSubmitting(false);
     }

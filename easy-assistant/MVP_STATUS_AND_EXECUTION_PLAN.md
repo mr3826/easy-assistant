@@ -5,7 +5,7 @@ Owner lane: integrated Codex execution wave with parallel Worker A/B/C lanes
 
 ## Current Read
 
-The repository is still primarily a polished frontend prototype, but this execution wave added the first backend-ready MVP foundation. It now has shared domain types, a Postgres migration for the minimum tenant-scoped schema, API route contracts, an appointment conflict helper, and an executable scheduling domain with tests.
+The repository now has its first real backend/auth foundation instead of a frontend-only prototype. Phase 1 introduced an executable server runtime, cookie-based sessions, SQLite persistence, and API-backed auth flows wired into the frontend.
 
 The app shell is also more MVP-focused: primary navigation now emphasizes the WhatsApp booking core modules, deferred modules are hidden from primary routing, and Privacy/Terms placeholder pages exist for launch-readiness and compliance preparation.
 
@@ -13,8 +13,8 @@ The app shell is also more MVP-focused: primary navigation now emphasizes the Wh
 
 | Brief area | Status | Evidence in repo | Missing to reach MVP | Next phase |
 |---|---|---|---|---|
-| Signup, login, logout, sessions | Partial | UI/auth context and tests exist, but current auth is localStorage based | Password hashing, server sessions, tenant creation, protected API auth | Phase 1 |
-| Organization/location tenant model | Partial | Domain types and `migrations/0001_mvp_foundation.sql` define organizations, locations, memberships, scoped records | Runtime backend, ORM/repository layer, enforced server authorization | Phase 1 |
+| Signup, login, logout, sessions | Implemented | Backend server, SQLite session store, cookie auth, and API-backed frontend session handling | Production hardening: rate limiting, audit logging, and deployment wiring | Phase 1 complete |
+| Organization/location tenant model | Implemented | Signup now creates user, organization, location, membership, and session records together | Tenant-scoped CRUD for the rest of the MVP modules | Phase 1 complete |
 | Services CRUD | Partial | Services page exists | Persistent service model, CRUD API, validation, delete guard for active appointments | Phase 2 |
 | Staff CRUD and service assignment | Partial | Staff page exists | Persistent staff model, staff_services join, API, validation | Phase 2 |
 | Availability engine | Partial | `src/server/domain/scheduling.ts` generates slots using service duration, staff assignment, business/staff hours, timezone, buffers, and appointment conflicts | API route implementation, persistence, holiday/exception support, transactional booking integration | Phase 3 |
@@ -29,7 +29,7 @@ The app shell is also more MVP-focused: primary navigation now emphasizes the Wh
 | Basic AI settings | Partial | AI Settings page exists | Persisted MVP settings and removal/hiding of non-MVP controls | Phase 6 |
 | Public booking link | Missing | No public booking route found | Public service list, slot picker, customer form, confirmation | Next phase after core MVP |
 | Privacy/compliance hooks | Partial | `/privacy` and `/terms` placeholder pages exist; customer consent and audit log fields exist in domain/migration | Customer export/delete UI/API, retention settings, localized privacy copy, opt-out handling | Phase 8 |
-| Security acceptance | Missing | Current auth still localStorage based | Hashed passwords, server authz, rate limits, webhook verification, no frontend secrets | Phase 1 and Phase 5 |
+| Security acceptance | Partial | Password hashing, HttpOnly cookie sessions, and API auth are in place | Rate limits, webhook verification, deployment secret hygiene, and broader authorization hardening | Phase 1 and Phase 5 |
 | Quality gates | Partial | Vitest harness, auth tests, and scheduling/conflict tests exist | Service/staff CRUD, webhook, AI tool-call, migration/seed coverage | All phases |
 
 ## Verification Coverage Status
@@ -174,8 +174,7 @@ Exit checks: setup docs are current, quality commands pass, and deferred modules
 
 ## Immediate Next Tasks
 
-1. Implement runtime backend handlers/repositories for the migration-backed domain types.
-2. Replace localStorage auth with server sessions, password hashing, membership lookup, and tenant-scoped API authorization.
-3. Wire persistent service/staff/customer/appointment CRUD before wiring AI or WhatsApp booking.
-4. Expose `GET /api/availability/slots` using the scheduling domain and enforce conflict checks in appointment create/reschedule.
-5. Add seed data and `.env.example` updates for local backend/database setup.
+1. Complete tenant-scoped CRUD for services, staff, customers, and appointments on top of the new backend foundation.
+2. Expose `GET /api/availability/slots` using the scheduling domain and enforce conflict checks in appointment create/reschedule.
+3. Add seed data and demo workflows for the new backend so the MVP can be exercised end to end.
+4. Expand the quality gates around the new API surface, especially auth/session and route-contract coverage.

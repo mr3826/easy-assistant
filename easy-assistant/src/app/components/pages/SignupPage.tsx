@@ -6,10 +6,15 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api';
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const { signup } = useAuth();
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     businessName: '',
     ownerName: '',
@@ -23,14 +28,47 @@ export default function SignupPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (step === 1) {
+      setFormError(null);
       setStep(2);
-    } else {
-      navigate('/onboarding');
+      return;
     }
+
+    if (formData.password !== formData.confirmPassword) {
+      setFormError('Passwords do not match.');
+      return;
+    }
+
+    void submitSignup();
   };
 
   const updateFormData = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
+  };
+
+  const submitSignup = async () => {
+    try {
+      setIsSubmitting(true);
+      setFormError(null);
+
+      const session = await signup({
+        name: formData.ownerName,
+        email: formData.email,
+        password: formData.password,
+        organizationName: formData.businessName,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      });
+
+      const nextPath = session.nextRoute ?? (session.requiresOnboarding === false ? '/dashboard' : '/onboarding');
+      navigate(nextPath, { replace: true });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setFormError('An account with this email already exists.');
+      } else {
+        setFormError('Unable to create your account right now.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -174,17 +212,21 @@ export default function SignupPage() {
                   Back
                 </Button>
               )}
-              <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
                 {step === 1 ? (
                   <>
                     Next
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </>
+                ) : isSubmitting ? (
+                  'Creating Account...'
                 ) : (
                   'Create Account'
                 )}
               </Button>
             </div>
+
+            {formError && <p className="text-sm text-red-500">{formError}</p>}
             
             <p className="text-center text-gray-600">
               Already have an account?{' '}

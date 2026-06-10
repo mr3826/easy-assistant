@@ -1,11 +1,10 @@
+import { authApiState, createAuthSession, resetAuthApiMock } from './auth-api-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import OnboardingWizard from '../app/components/pages/OnboardingWizard';
 import AuthGuard from '../app/components/guards/AuthGuard';
 import { AuthProvider } from '../app/context/AuthContext';
 import { click, getByTestId, getByText, render, waitFor } from './test-utils';
-
-const AUTH_STORAGE_KEY = 'easy_assistant_auth';
 
 function LocationProbe() {
   const location = useLocation();
@@ -24,11 +23,12 @@ function getButton(container: ParentNode, text: string) {
 
 describe('OnboardingWizard', () => {
   beforeEach(() => {
-    localStorage.clear();
+    resetAuthApiMock();
+    authApiState.session = createAuthSession();
   });
 
   afterEach(() => {
-    localStorage.clear();
+    resetAuthApiMock();
   });
 
   it('establishes demo auth before redirecting to the guarded dashboard', async () => {
@@ -52,6 +52,10 @@ describe('OnboardingWizard', () => {
       </AuthProvider>,
     );
 
+    await waitFor(() => {
+      expect(getByText(container, 'Next')).toBeInTheDocument();
+    });
+
     for (let step = 1; step < 7; step += 1) {
       click(getButton(container, 'Next'));
     }
@@ -61,7 +65,6 @@ describe('OnboardingWizard', () => {
     await waitFor(() => {
       expect(getByText(container, 'Private dashboard')).toBeInTheDocument();
       expect(getByTestId(container, 'location')).toHaveTextContent('/dashboard');
-      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBe('true');
     });
   });
 });

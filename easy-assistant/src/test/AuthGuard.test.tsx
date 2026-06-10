@@ -1,10 +1,9 @@
+import { authApiState, createAuthSession, resetAuthApiMock } from './auth-api-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import AuthGuard from '../app/components/guards/AuthGuard';
 import { AuthProvider } from '../app/context/AuthContext';
 import { getByTestId, getByText, queryByText, render, waitFor } from './test-utils';
-
-const AUTH_STORAGE_KEY = 'easy_assistant_auth';
 
 function LocationProbe() {
   const location = useLocation();
@@ -13,14 +12,18 @@ function LocationProbe() {
 
 describe('AuthGuard', () => {
   beforeEach(() => {
+    resetAuthApiMock();
     localStorage.clear();
   });
 
   afterEach(() => {
+    resetAuthApiMock();
     localStorage.clear();
   });
 
-  it('redirects unauthenticated users to login', async () => {
+  it('redirects unauthenticated users to login after the session check completes', async () => {
+    authApiState.session = null;
+
     const { container } = render(
       <AuthProvider>
         <MemoryRouter initialEntries={['/dashboard']}>
@@ -54,8 +57,8 @@ describe('AuthGuard', () => {
     });
   });
 
-  it('renders protected content for authenticated users', () => {
-    localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+  it('renders protected content for authenticated users once the session loads', async () => {
+    authApiState.session = createAuthSession();
 
     const { container } = render(
       <AuthProvider>
@@ -74,6 +77,8 @@ describe('AuthGuard', () => {
       </AuthProvider>,
     );
 
-    expect(getByText(container, 'Private dashboard')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getByText(container, 'Private dashboard')).toBeInTheDocument();
+    });
   });
 });

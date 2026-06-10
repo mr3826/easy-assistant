@@ -1,3 +1,4 @@
+import { authApiState, createAuthSession, resetAuthApiMock } from './auth-api-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -5,8 +6,6 @@ import LoginPage from '../app/components/pages/LoginPage';
 import { AuthProvider } from '../app/context/AuthContext';
 import AuthGuard from '../app/components/guards/AuthGuard';
 import { click, getByTestId, getByText, render, waitFor } from './test-utils';
-
-const AUTH_STORAGE_KEY = 'easy_assistant_auth';
 
 function LocationProbe() {
   const location = useLocation();
@@ -30,11 +29,11 @@ function submitForm(form: HTMLFormElement) {
 
 describe('LoginPage', () => {
   beforeEach(() => {
-    localStorage.clear();
+    resetAuthApiMock();
   });
 
   afterEach(() => {
-    localStorage.clear();
+    resetAuthApiMock();
   });
 
   it('renders the login form and toggles password visibility', () => {
@@ -67,6 +66,19 @@ describe('LoginPage', () => {
   });
 
   it('authenticates before navigating to the guarded dashboard', async () => {
+    authApiState.loginResponse = createAuthSession({
+      user: {
+        id: 'user-login',
+        name: 'Owner',
+        email: 'demo@example.com',
+        passwordHash: 'dev:password',
+        status: 'active',
+        lastLoginAt: '2026-06-11T00:15:00+06:00',
+        createdAt: '2026-06-11T00:00:00+06:00',
+        updatedAt: '2026-06-11T00:15:00+06:00',
+      },
+    });
+
     const { container } = render(
       <AuthProvider>
         <MemoryRouter initialEntries={['/login']}>
@@ -101,7 +113,6 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(getByText(container, 'Private dashboard')).toBeInTheDocument();
       expect(getByTestId(container, 'location')).toHaveTextContent('/dashboard');
-      expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBe('true');
     });
   });
 });

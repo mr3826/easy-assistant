@@ -1,3 +1,4 @@
+import { authApiState, createAuthSession, resetAuthApiMock } from './auth-api-mock';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -5,8 +6,6 @@ import DashboardLayout from '../app/components/layout/DashboardLayout';
 import AuthGuard from '../app/components/guards/AuthGuard';
 import { AuthProvider } from '../app/context/AuthContext';
 import { getByTestId, getByText, render, waitFor } from './test-utils';
-
-const AUTH_STORAGE_KEY = 'easy_assistant_auth';
 
 function LocationProbe() {
   const location = useLocation();
@@ -31,12 +30,12 @@ function clickElement(element: Element) {
 
 describe('DashboardLayout', () => {
   beforeEach(() => {
-    localStorage.clear();
-    localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+    resetAuthApiMock();
+    authApiState.session = createAuthSession();
   });
 
   afterEach(() => {
-    localStorage.clear();
+    resetAuthApiMock();
   });
 
   it('logs out and returns to login from the user menu', async () => {
@@ -68,6 +67,10 @@ describe('DashboardLayout', () => {
       </AuthProvider>,
     );
 
+    await waitFor(() => {
+      expect(getByText(container, 'John Doe')).toBeInTheDocument();
+    });
+
     const accountButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('John Doe'),
     );
@@ -88,7 +91,6 @@ describe('DashboardLayout', () => {
     await waitFor(() => {
       expect(getByText(container, 'Login')).toBeInTheDocument();
       expect(getByTestId(container, 'location')).toHaveTextContent('/login');
-      expect(localStorage.getItem(AUTH_STORAGE_KEY)).not.toBe('true');
     });
   });
 });
