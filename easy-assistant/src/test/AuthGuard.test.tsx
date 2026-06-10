@@ -1,0 +1,79 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import AuthGuard from '../app/components/guards/AuthGuard';
+import { AuthProvider } from '../app/context/AuthContext';
+import { getByTestId, getByText, queryByText, render, waitFor } from './test-utils';
+
+const AUTH_STORAGE_KEY = 'easy_assistant_auth';
+
+function LocationProbe() {
+  const location = useLocation();
+  return <p data-testid="location">{location.pathname}</p>;
+}
+
+describe('AuthGuard', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('redirects unauthenticated users to login', async () => {
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Routes>
+            <Route
+              path="/login"
+              element={
+                <>
+                  <h1>Login</h1>
+                  <LocationProbe />
+                </>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <AuthGuard>
+                  <h1>Private dashboard</h1>
+                </AuthGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByText(container, 'Login')).toBeInTheDocument();
+      expect(queryByText(container, 'Private dashboard')).toBeUndefined();
+      expect(getByTestId(container, 'location')).toHaveTextContent('/login');
+    });
+  });
+
+  it('renders protected content for authenticated users', () => {
+    localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+
+    const { container } = render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Routes>
+            <Route
+              path="/dashboard"
+              element={
+                <AuthGuard>
+                  <h1>Private dashboard</h1>
+                </AuthGuard>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+
+    expect(getByText(container, 'Private dashboard')).toBeInTheDocument();
+  });
+});

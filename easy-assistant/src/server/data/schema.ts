@@ -1,0 +1,58 @@
+export const MVP_TABLES = [
+  "organizations",
+  "locations",
+  "users",
+  "sessions",
+  "memberships",
+  "services",
+  "staff",
+  "staff_services",
+  "business_hours",
+  "staff_hours",
+  "customers",
+  "channels",
+  "conversations",
+  "messages",
+  "appointments",
+  "ai_settings",
+  "reminders",
+  "reminder_deliveries",
+  "audit_logs",
+] as const;
+
+export type MvpTable = (typeof MVP_TABLES)[number];
+
+export const SCOPED_MVP_TABLES = [
+  "locations",
+  "memberships",
+  "services",
+  "staff",
+  "staff_services",
+  "business_hours",
+  "staff_hours",
+  "customers",
+  "channels",
+  "conversations",
+  "messages",
+  "appointments",
+  "ai_settings",
+  "reminders",
+  "reminder_deliveries",
+  "audit_logs",
+] as const satisfies readonly MvpTable[];
+
+export const LOCATION_SCOPED_MVP_TABLES = [
+  "services",
+  "staff",
+  "staff_services",
+  "business_hours",
+  "staff_hours",
+  "customers",
+  "channels",
+  "conversations",
+  "messages",
+  "appointments",
+  "ai_settings",
+  "reminders",
+  "reminder_deliveries",
+] as const satisfies readonly MvpTable[];
