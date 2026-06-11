@@ -1,5 +1,6 @@
 export { ApiError, apiRequest } from './client';
 export type { ApiRequestOptions } from './client';
+export * from './resources';
 export {
   fetchAuthSession,
   loginWithApi,

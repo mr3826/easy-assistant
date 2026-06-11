@@ -3,6 +3,7 @@ import { config } from './config.mjs';
 import { openDatabase } from './db.mjs';
 import { createRepository } from './repository.mjs';
 import { createAuthService } from './auth-service.mjs';
+import { createPhase2Service } from './phase2.mjs';
 import {
   buildSessionCookie,
   clearSessionCookie,
@@ -15,6 +16,7 @@ import {
 const db = openDatabase();
 const repository = createRepository(db);
 const auth = createAuthService(repository, db);
+const phase2 = createPhase2Service(repository);
 
 const server = http.createServer(async (req, res) => {
   const requestOrigin = req.headers.origin;
@@ -126,6 +128,219 @@ const server = http.createServer(async (req, res) => {
       emptyResponse(res, 204, requestOrigin, {
         'Set-Cookie': clearSessionCookie(isSecureCookie(req)),
       });
+      return;
+    }
+
+    const session = requireSession(req);
+    const scope = toTenantScope(session);
+
+    if (pathname === '/api/organizations' && method === 'GET') {
+      jsonResponse(res, 200, page([toOrganizationPayload(session.organization)]), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/locations' && method === 'GET') {
+      jsonResponse(res, 200, page([toLocationPayload(session.location)]), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/services' && method === 'GET') {
+      jsonResponse(res, 200, phase2.listServices(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/services' && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 201, phase2.createService(scope, unwrapPayload(body, 'service')), requestOrigin);
+      return;
+    }
+
+    const serviceMatch = pathname.match(/^\/api\/services\/([^/]+)$/);
+    if (serviceMatch) {
+      const serviceId = decodeURIComponent(serviceMatch[1]);
+      if (method === 'GET') {
+        jsonResponse(res, 200, phase2.getService(scope, serviceId), requestOrigin);
+        return;
+      }
+      if (method === 'PATCH') {
+        const body = await readJsonBody(req);
+        jsonResponse(res, 200, phase2.updateService(scope, serviceId, unwrapPayload(body, 'service')), requestOrigin);
+        return;
+      }
+      if (method === 'DELETE') {
+        jsonResponse(res, 200, phase2.deleteService(scope, serviceId), requestOrigin);
+        return;
+      }
+    }
+
+    if (pathname === '/api/staff' && method === 'GET') {
+      jsonResponse(res, 200, phase2.listStaff(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/staff' && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 201, phase2.createStaff(scope, unwrapPayload(body, 'staff')), requestOrigin);
+      return;
+    }
+
+    const staffMatch = pathname.match(/^\/api\/staff\/([^/]+)$/);
+    if (staffMatch) {
+      const staffId = decodeURIComponent(staffMatch[1]);
+      if (method === 'GET') {
+        jsonResponse(res, 200, phase2.getStaff(scope, staffId), requestOrigin);
+        return;
+      }
+      if (method === 'PATCH') {
+        const body = await readJsonBody(req);
+        jsonResponse(res, 200, phase2.updateStaff(scope, staffId, unwrapPayload(body, 'staff')), requestOrigin);
+        return;
+      }
+      if (method === 'DELETE') {
+        jsonResponse(res, 200, phase2.deleteStaff(scope, staffId), requestOrigin);
+        return;
+      }
+    }
+
+    const staffServicesMatch = pathname.match(/^\/api\/staff\/([^/]+)\/services$/);
+    if (staffServicesMatch && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 201, phase2.assignStaffService(scope, decodeURIComponent(staffServicesMatch[1]), unwrapPayload(body, 'assignment')), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/availability/business-hours' && method === 'GET') {
+      jsonResponse(res, 200, phase2.listAvailabilityBusinessHours(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/availability/business-hours' && method === 'PUT') {
+      const body = await readJsonBody(req);
+      jsonResponse(
+        res,
+        200,
+        phase2.replaceAvailabilityBusinessHours(scope, { hours: unwrapHours(body, 'hours') }),
+        requestOrigin,
+      );
+      return;
+    }
+
+    const staffHoursMatch = pathname.match(/^\/api\/availability\/staff-hours\/([^/]+)$/);
+    if (staffHoursMatch && method === 'GET') {
+      jsonResponse(res, 200, phase2.listStaffHours(scope, decodeURIComponent(staffHoursMatch[1])), requestOrigin);
+      return;
+    }
+
+    if (staffHoursMatch && method === 'PUT') {
+      const body = await readJsonBody(req);
+      jsonResponse(
+        res,
+        200,
+        phase2.replaceStaffHours(scope, decodeURIComponent(staffHoursMatch[1]), { hours: unwrapHours(body, 'hours') }),
+        requestOrigin,
+      );
+      return;
+    }
+
+    if (pathname === '/api/customers' && method === 'GET') {
+      jsonResponse(res, 200, phase2.listCustomers(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/customers' && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 201, phase2.createCustomer(scope, unwrapPayload(body, 'customer')), requestOrigin);
+      return;
+    }
+
+    const customerMatch = pathname.match(/^\/api\/customers\/([^/]+)$/);
+    if (customerMatch) {
+      const customerId = decodeURIComponent(customerMatch[1]);
+      if (method === 'GET') {
+        jsonResponse(res, 200, phase2.getCustomer(scope, customerId), requestOrigin);
+        return;
+      }
+      if (method === 'PATCH') {
+        const body = await readJsonBody(req);
+        jsonResponse(res, 200, phase2.updateCustomer(scope, customerId, unwrapPayload(body, 'customer')), requestOrigin);
+        return;
+      }
+      if (method === 'DELETE') {
+        jsonResponse(res, 200, phase2.deleteCustomer(scope, customerId), requestOrigin);
+        return;
+      }
+    }
+
+    if (pathname === '/api/appointments' && method === 'GET') {
+      jsonResponse(res, 200, phase2.listAppointments(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/appointments' && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 201, phase2.createAppointment(scope, unwrapPayload(body, 'appointment')), requestOrigin);
+      return;
+    }
+
+    const appointmentMatch = pathname.match(/^\/api\/appointments\/([^/]+)$/);
+    if (appointmentMatch) {
+      const appointmentId = decodeURIComponent(appointmentMatch[1]);
+      if (method === 'GET') {
+        jsonResponse(res, 200, phase2.getAppointment(scope, appointmentId), requestOrigin);
+        return;
+      }
+      if (method === 'PATCH') {
+        const body = await readJsonBody(req);
+        jsonResponse(res, 200, phase2.updateAppointment(scope, appointmentId, unwrapPayload(body, 'appointment')), requestOrigin);
+        return;
+      }
+      if (method === 'DELETE') {
+        jsonResponse(res, 200, phase2.deleteAppointment(scope, appointmentId), requestOrigin);
+        return;
+      }
+    }
+
+    const appointmentStatusMatch = pathname.match(/^\/api\/appointments\/([^/]+)\/status$/);
+    if (appointmentStatusMatch && method === 'PATCH') {
+      const body = await readJsonBody(req);
+      const appointmentId = decodeURIComponent(appointmentStatusMatch[1]);
+      jsonResponse(res, 200, phase2.updateAppointmentStatus(scope, appointmentId, body?.status ?? body), requestOrigin);
+      return;
+    }
+
+    const appointmentRescheduleMatch = pathname.match(/^\/api\/appointments\/([^/]+)\/reschedule$/);
+    if (appointmentRescheduleMatch && (method === 'PATCH' || method === 'POST')) {
+      const body = await readJsonBody(req);
+      const appointmentId = decodeURIComponent(appointmentRescheduleMatch[1]);
+      jsonResponse(res, 200, phase2.rescheduleAppointment(scope, appointmentId, unwrapPayload(body, 'appointment')), requestOrigin);
+      return;
+    }
+
+    const appointmentCancelMatch = pathname.match(/^\/api\/appointments\/([^/]+)\/cancel$/);
+    if (appointmentCancelMatch && method === 'POST') {
+      const appointmentId = decodeURIComponent(appointmentCancelMatch[1]);
+      jsonResponse(res, 200, phase2.deleteAppointment(scope, appointmentId), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/availability/slots' && method === 'GET') {
+      const serviceId = url.searchParams.get('serviceId');
+      const date = url.searchParams.get('date');
+      const staffId = url.searchParams.get('staffId') || undefined;
+      if (!serviceId || !date) {
+        throw makeHttpError(400, 'invalid_input', 'serviceId and date are required.');
+      }
+
+      jsonResponse(
+        res,
+        200,
+        phase2.getAvailabilitySlots(scope, {
+          serviceId: decodeURIComponent(serviceId),
+          date,
+          staffId: staffId ? decodeURIComponent(staffId) : undefined,
+        }),
+        requestOrigin,
+      );
       return;
     }
 
@@ -251,4 +466,54 @@ function toIso(value) {
 
   const numeric = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(numeric) ? new Date(numeric).toISOString() : null;
+}
+
+function page(items) {
+  return { items, nextCursor: null };
+}
+
+function requireSession(req) {
+  const sessionToken = parseCookies(req.headers.cookie ?? '')[config.cookieName];
+  const session = auth.resolveSession(sessionToken);
+  if (!session) {
+    throw makeHttpError(401, 'unauthorized', 'Authentication required.');
+  }
+  return session;
+}
+
+function toTenantScope(session) {
+  return {
+    organizationId: session.organization.id,
+    locationId: session.location.id,
+    timezone: session.location.timezone ?? session.organization.timezone ?? config.defaultTimezone,
+  };
+}
+
+function unwrapPayload(body, key) {
+  if (body && typeof body === 'object' && !Array.isArray(body) && key in body) {
+    const value = body[key];
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  return body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+}
+
+function unwrapHours(body, key) {
+  const payload = unwrapPayload(body, key);
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if ('hours' in payload && Array.isArray(payload.hours)) {
+    return payload.hours;
+  }
+
+  return [];
+}
+
+function makeHttpError(statusCode, code, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  return error;
 }

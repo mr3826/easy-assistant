@@ -6,11 +6,11 @@ export function createRepository(db) {
     db,
 
     findUserByEmail(email) {
-      return db.prepare('SELECT * FROM users WHERE email = ?').get(email) ?? null;
+      return one(db, 'users', 'email', email);
     },
 
     findUserById(userId) {
-      return db.prepare('SELECT * FROM users WHERE id = ?').get(userId) ?? null;
+      return one(db, 'users', 'id', userId);
     },
 
     listUserMemberships(userId) {
@@ -28,11 +28,11 @@ export function createRepository(db) {
     },
 
     findOrganizationById(organizationId) {
-      return db.prepare('SELECT * FROM organizations WHERE id = ?').get(organizationId) ?? null;
+      return one(db, 'organizations', 'id', organizationId);
     },
 
     findLocationById(locationId) {
-      return db.prepare('SELECT * FROM locations WHERE id = ?').get(locationId) ?? null;
+      return one(db, 'locations', 'id', locationId);
     },
 
     findLocationsByOrganizationId(organizationId) {
@@ -50,11 +50,10 @@ export function createRepository(db) {
     },
 
     createUser(input) {
-      const stmt = db.prepare(`
+      db.prepare(`
         INSERT INTO users (id, name, email, password_hash, status, last_login_at, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      stmt.run(
+      `).run(
         input.id,
         input.name,
         input.email,
@@ -147,7 +146,7 @@ export function createRepository(db) {
     },
 
     findSessionById(sessionId) {
-      return db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) ?? null;
+      return one(db, 'sessions', 'id', sessionId);
     },
 
     findSessionByTokenHash(tokenHash) {
@@ -204,11 +203,530 @@ export function createRepository(db) {
     },
 
     listSessionsForUser(userId) {
+      return db.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+    },
+
+    listServices(scope) {
       return db
-        .prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC')
-        .all(userId);
+        .prepare(
+          `
+            SELECT *
+            FROM services
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    findServiceById(serviceId) {
+      return one(db, 'services', 'id', serviceId);
+    },
+
+    createService(input) {
+      db.prepare(`
+        INSERT INTO services (
+          id, organization_id, location_id, name, category, description, duration_minutes, buffer_minutes,
+          price, currency, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.name,
+        input.category ?? null,
+        input.description ?? null,
+        input.durationMinutes,
+        input.bufferMinutes ?? 0,
+        input.price ?? 0,
+        input.currency ?? 'BDT',
+        input.active === false ? 0 : 1,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findServiceById(input.id);
+    },
+
+    updateService(serviceId, updates) {
+      updateRow(db, 'services', 'id', serviceId, {
+        name: updates.name,
+        category: updates.category,
+        description: updates.description,
+        duration_minutes: updates.durationMinutes,
+        buffer_minutes: updates.bufferMinutes,
+        price: updates.price,
+        currency: updates.currency,
+        active: updates.active === undefined ? undefined : booleanToInt(updates.active),
+        updated_at: updates.updatedAt,
+      });
+      return this.findServiceById(serviceId);
+    },
+
+    deactivateService(serviceId, updatedAt) {
+      updateRow(db, 'services', 'id', serviceId, { active: 0, updated_at: updatedAt });
+      return this.findServiceById(serviceId);
+    },
+
+    listStaff(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM staff
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    findStaffById(staffId) {
+      return one(db, 'staff', 'id', staffId);
+    },
+
+    createStaff(input) {
+      db.prepare(`
+        INSERT INTO staff (
+          id, organization_id, location_id, name, role_title, email, phone, avatar_url, active,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.name,
+        input.roleTitle ?? null,
+        input.email ?? null,
+        input.phone ?? null,
+        input.avatarUrl ?? null,
+        input.active === false ? 0 : 1,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findStaffById(input.id);
+    },
+
+    updateStaff(staffId, updates) {
+      updateRow(db, 'staff', 'id', staffId, {
+        name: updates.name,
+        role_title: updates.roleTitle,
+        email: updates.email,
+        phone: updates.phone,
+        avatar_url: updates.avatarUrl,
+        active: updates.active === undefined ? undefined : booleanToInt(updates.active),
+        updated_at: updates.updatedAt,
+      });
+      return this.findStaffById(staffId);
+    },
+
+    deactivateStaff(staffId, updatedAt) {
+      updateRow(db, 'staff', 'id', staffId, { active: 0, updated_at: updatedAt });
+      return this.findStaffById(staffId);
+    },
+
+    listStaffServices(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM staff_services
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    listStaffServicesForStaff(scope, staffId) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM staff_services
+            WHERE organization_id = ? AND location_id = ? AND staff_id = ? AND active = 1
+            ORDER BY created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId, staffId);
+    },
+
+    upsertStaffService(input) {
+      const existing = db
+        .prepare(
+          `
+            SELECT *
+            FROM staff_services
+            WHERE organization_id = ? AND location_id = ? AND staff_id = ? AND service_id = ?
+            LIMIT 1
+          `,
+        )
+        .get(input.organizationId, input.locationId, input.staffId, input.serviceId);
+
+      if (existing) {
+        updateRow(db, 'staff_services', 'id', existing.id, {
+          active: input.active === undefined ? 1 : booleanToInt(input.active),
+          updated_at: input.updatedAt,
+        });
+        return this.findStaffServiceById(existing.id);
+      }
+
+      db.prepare(`
+        INSERT INTO staff_services (
+          id, organization_id, location_id, staff_id, service_id, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.staffId,
+        input.serviceId,
+        input.active === false ? 0 : 1,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findStaffServiceById(input.id);
+    },
+
+    findStaffServiceById(staffServiceId) {
+      return one(db, 'staff_services', 'id', staffServiceId);
+    },
+
+    deactivateStaffService(staffServiceId, updatedAt) {
+      updateRow(db, 'staff_services', 'id', staffServiceId, { active: 0, updated_at: updatedAt });
+      return this.findStaffServiceById(staffServiceId);
+    },
+
+    replaceStaffServices(scope, staffId, serviceIds, timestamps) {
+      const existing = this.listStaffServicesForStaff(scope, staffId);
+      const keep = new Set(serviceIds);
+
+      for (const assignment of existing) {
+        if (!keep.has(assignment.service_id)) {
+          this.deactivateStaffService(assignment.id, timestamps.updatedAt);
+        }
+      }
+
+      for (const serviceId of serviceIds) {
+        this.upsertStaffService({
+          id: generateRowId(),
+          organizationId: scope.organizationId,
+          locationId: scope.locationId,
+          staffId,
+          serviceId,
+          active: true,
+          createdAt: timestamps.createdAt,
+          updatedAt: timestamps.updatedAt,
+        });
+      }
+
+      return this.listStaffServicesForStaff(scope, staffId);
+    },
+
+    listBusinessHours(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM business_hours
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY weekday ASC, open_time ASC, created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    replaceBusinessHours(scope, hours, timestamps) {
+      db.prepare(
+        `
+          UPDATE business_hours
+          SET active = 0, updated_at = ?
+          WHERE organization_id = ? AND location_id = ? AND active = 1
+        `,
+      ).run(timestamps.updatedAt, scope.organizationId, scope.locationId);
+
+      const inserted = [];
+      for (const hour of hours) {
+        const row = this.createBusinessHour({
+          id: generateRowId(),
+          organizationId: scope.organizationId,
+          locationId: scope.locationId,
+          weekday: hour.weekday,
+          openTime: hour.openTime,
+          closeTime: hour.closeTime,
+          active: hour.active ?? true,
+          createdAt: timestamps.createdAt,
+          updatedAt: timestamps.updatedAt,
+        });
+        inserted.push(row);
+      }
+
+      return inserted;
+    },
+
+    findBusinessHourById(businessHourId) {
+      return one(db, 'business_hours', 'id', businessHourId);
+    },
+
+    createBusinessHour(input) {
+      db.prepare(`
+        INSERT INTO business_hours (
+          id, organization_id, location_id, weekday, open_time, close_time, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.weekday,
+        input.openTime,
+        input.closeTime,
+        input.active === false ? 0 : 1,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findBusinessHourById(input.id);
+    },
+
+    listStaffHours(scope, staffId) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM staff_hours
+            WHERE organization_id = ? AND location_id = ? AND staff_id = ? AND active = 1
+            ORDER BY weekday ASC, start_time ASC, created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId, staffId);
+    },
+
+    replaceStaffHours(scope, staffId, hours, timestamps) {
+      db.prepare(
+        `
+          UPDATE staff_hours
+          SET active = 0, updated_at = ?
+          WHERE organization_id = ? AND location_id = ? AND staff_id = ? AND active = 1
+        `,
+      ).run(timestamps.updatedAt, scope.organizationId, scope.locationId, staffId);
+
+      const inserted = [];
+      for (const hour of hours) {
+        const row = this.createStaffHour({
+          id: generateRowId(),
+          organizationId: scope.organizationId,
+          locationId: scope.locationId,
+          staffId,
+          weekday: hour.weekday,
+          startTime: hour.startTime,
+          endTime: hour.endTime,
+          active: hour.active ?? true,
+          createdAt: timestamps.createdAt,
+          updatedAt: timestamps.updatedAt,
+        });
+        inserted.push(row);
+      }
+
+      return inserted;
+    },
+
+    findStaffHourById(staffHourId) {
+      return one(db, 'staff_hours', 'id', staffHourId);
+    },
+
+    createStaffHour(input) {
+      db.prepare(`
+        INSERT INTO staff_hours (
+          id, organization_id, location_id, staff_id, weekday, start_time, end_time, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.staffId,
+        input.weekday,
+        input.startTime,
+        input.endTime,
+        input.active === false ? 0 : 1,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findStaffHourById(input.id);
+    },
+
+    listCustomers(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM customers
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    findCustomerById(customerId) {
+      return one(db, 'customers', 'id', customerId);
+    },
+
+    createCustomer(input) {
+      db.prepare(`
+        INSERT INTO customers (
+          id, organization_id, location_id, name, phone, email, source_channel, consent_status,
+          last_seen_at, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.name ?? null,
+        input.phone,
+        input.email ?? null,
+        input.sourceChannel ?? 'manual',
+        input.consentStatus ?? 'unknown',
+        input.lastSeenAt ?? null,
+        input.active === false ? 0 : 1,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findCustomerById(input.id);
+    },
+
+    updateCustomer(customerId, updates) {
+      updateRow(db, 'customers', 'id', customerId, {
+        name: updates.name,
+        phone: updates.phone,
+        email: updates.email,
+        source_channel: updates.sourceChannel,
+        consent_status: updates.consentStatus,
+        last_seen_at: updates.lastSeenAt,
+        active: updates.active === undefined ? undefined : booleanToInt(updates.active),
+        updated_at: updates.updatedAt,
+      });
+      return this.findCustomerById(customerId);
+    },
+
+    deactivateCustomer(customerId, updatedAt) {
+      updateRow(db, 'customers', 'id', customerId, { active: 0, updated_at: updatedAt });
+      return this.findCustomerById(customerId);
+    },
+
+    listAppointments(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM appointments
+            WHERE organization_id = ? AND location_id = ?
+            ORDER BY start_time DESC, created_at DESC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    listAppointmentsForRange(scope, startTime, endTime) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM appointments
+            WHERE organization_id = ? AND location_id = ? AND start_time < ? AND end_time > ?
+            ORDER BY start_time ASC, created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId, endTime, startTime);
+    },
+
+    findAppointmentById(appointmentId) {
+      return one(db, 'appointments', 'id', appointmentId);
+    },
+
+    createAppointment(input) {
+      db.prepare(`
+        INSERT INTO appointments (
+          id, organization_id, location_id, customer_id, service_id, staff_id, channel_id, conversation_id,
+          start_time, end_time, status, notes, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.customerId,
+        input.serviceId,
+        input.staffId,
+        input.channelId ?? null,
+        input.conversationId ?? null,
+        input.startTime,
+        input.endTime,
+        input.status ?? 'pending',
+        input.notes ?? null,
+        input.createdBy ?? 'manual',
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findAppointmentById(input.id);
+    },
+
+    updateAppointment(appointmentId, updates) {
+      updateRow(db, 'appointments', 'id', appointmentId, {
+        customer_id: updates.customerId,
+        service_id: updates.serviceId,
+        staff_id: updates.staffId,
+        channel_id: updates.channelId,
+        conversation_id: updates.conversationId,
+        start_time: updates.startTime,
+        end_time: updates.endTime,
+        status: updates.status,
+        notes: updates.notes,
+        created_by: updates.createdBy,
+        updated_at: updates.updatedAt,
+      });
+      return this.findAppointmentById(appointmentId);
+    },
+
+    updateAppointmentStatus(appointmentId, status, updatedAt) {
+      updateRow(db, 'appointments', 'id', appointmentId, { status, updated_at: updatedAt });
+      return this.findAppointmentById(appointmentId);
+    },
+
+    cancelAppointment(appointmentId, updatedAt, notes) {
+      updateRow(db, 'appointments', 'id', appointmentId, {
+        status: 'cancelled',
+        notes,
+        updated_at: updatedAt,
+      });
+      return this.findAppointmentById(appointmentId);
+    },
+
+    rescheduleAppointment(appointmentId, startTime, endTime, updatedAt, status = 'rescheduled') {
+      updateRow(db, 'appointments', 'id', appointmentId, {
+        start_time: startTime,
+        end_time: endTime,
+        status,
+        updated_at: updatedAt,
+      });
+      return this.findAppointmentById(appointmentId);
     },
   };
+}
+
+function one(db, table, column, value) {
+  return db.prepare(`SELECT * FROM ${table} WHERE ${column} = ? LIMIT 1`).get(value) ?? null;
+}
+
+function updateRow(db, table, idColumn, id, updates) {
+  const entries = Object.entries(updates).filter(([, value]) => value !== undefined);
+  if (!entries.length) {
+    return;
+  }
+
+  const setClause = entries.map(([column]) => `${column} = ?`).join(', ');
+  const values = entries.map(([, value]) => value);
+  db.prepare(`UPDATE ${table} SET ${setClause} WHERE ${idColumn} = ?`).run(...values, id);
+}
+
+function booleanToInt(value) {
+  return value ? 1 : 0;
 }
 
 function chooseCurrentMembership(memberships) {
@@ -235,11 +753,17 @@ function membershipRoleRank(role) {
 }
 
 function slugify(value) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 48) || `tenant-${randomUUID().slice(0, 8)}`;
+  return (
+    String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-')
+      .slice(0, 48) || `tenant-${randomUUID().slice(0, 8)}`
+  );
+}
+
+function generateRowId() {
+  return randomUUID();
 }

@@ -1,4 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type {
+  ApiRouteContract,
+  AvailabilitySlotsRequest,
+  AvailabilitySlotsResponse,
+  PaginatedResponse,
+  TenantScopedRequest,
+} from '../server/api/contracts';
 import { API_ROUTES } from '../server/api/contracts';
 import { LOCATION_SCOPED_MVP_TABLES, MVP_TABLES, SCOPED_MVP_TABLES } from '../server/data/schema';
 import {
@@ -6,6 +13,15 @@ import {
   canTransitionAppointmentStatus,
   isBlockingAppointmentStatus,
 } from '../server/domain';
+import type {
+  Appointment,
+  BusinessHour,
+  Customer,
+  Service,
+  Staff,
+  StaffHour,
+  StaffService,
+} from '../app/types';
 
 describe('backend auth and domain contracts', () => {
   it('keeps the auth/session routes aligned with the MVP contract surface', () => {
@@ -27,6 +43,45 @@ describe('backend auth and domain contracts', () => {
     expect(API_ROUTES.currentUser).toMatchObject({
       method: 'GET',
       path: '/api/auth/me',
+      authRequired: true,
+    });
+  });
+
+  it('keeps the phase-2 CRUD and availability routes aligned with the SQLite backend surface', () => {
+    expect(API_ROUTES.services).toMatchObject({ method: 'GET', path: '/api/services', authRequired: true });
+    expect(API_ROUTES.serviceDetail).toMatchObject({
+      method: 'GET',
+      path: '/api/services/:serviceId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.staffDetail).toMatchObject({
+      method: 'GET',
+      path: '/api/staff/:staffId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateBusinessHours).toMatchObject({
+      method: 'PUT',
+      path: '/api/availability/business-hours',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateStaffHours).toMatchObject({
+      method: 'PUT',
+      path: '/api/availability/staff-hours/:staffId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.appointmentDetail).toMatchObject({
+      method: 'GET',
+      path: '/api/appointments/:appointmentId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.deleteAppointment).toMatchObject({
+      method: 'DELETE',
+      path: '/api/appointments/:appointmentId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.customerDetail).toMatchObject({
+      method: 'GET',
+      path: '/api/customers/:customerId',
       authRequired: true,
     });
   });
@@ -88,5 +143,391 @@ describe('backend auth and domain contracts', () => {
     expect(() =>
       assertValidAppointmentWindow('not-a-real-iso-date', '2026-06-11T10:30:00+06:00'),
     ).toThrow('Appointment startTime and endTime must be valid ISO date-time values.');
+  });
+});
+
+const phase2Timestamp = '2026-06-11T00:00:00+06:00';
+
+const phase2Service: Service = {
+  id: 'svc-haircut',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  name: 'Haircut',
+  category: 'Hair',
+  description: 'Basic trim and shaping',
+  durationMinutes: 30,
+  bufferMinutes: 10,
+  price: 2500,
+  currency: 'BDT',
+  active: true,
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+const phase2Staff: Staff = {
+  id: 'staff-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  name: 'Ayesha',
+  roleTitle: 'Stylist',
+  email: 'ayesha@example.com',
+  phone: '+8801700000000',
+  avatarUrl: null,
+  active: true,
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+const phase2Assignment: StaffService = {
+  id: 'assign-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  staffId: phase2Staff.id,
+  serviceId: phase2Service.id,
+  active: true,
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+const phase2BusinessHour: BusinessHour = {
+  id: 'hours-business-thursday',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  weekday: 4,
+  openTime: '10:00',
+  closeTime: '18:00',
+  active: true,
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+const phase2StaffHour: StaffHour = {
+  id: 'hours-staff-thursday',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  staffId: phase2Staff.id,
+  weekday: 4,
+  startTime: '10:30',
+  endTime: '17:30',
+  active: true,
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+const phase2Customer: Customer = {
+  id: 'customer-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  name: 'Nadia Rahman',
+  phone: '+8801711111111',
+  email: 'nadia@example.com',
+  sourceChannel: 'manual',
+  consentStatus: 'opted_in',
+  lastSeenAt: phase2Timestamp,
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+const phase2Appointment: Appointment = {
+  id: 'appt-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  customerId: phase2Customer.id,
+  serviceId: phase2Service.id,
+  staffId: phase2Staff.id,
+  channelId: null,
+  conversationId: null,
+  startTime: '2026-06-11T11:00:00+06:00',
+  endTime: '2026-06-11T11:40:00+06:00',
+  status: 'confirmed',
+  notes: 'Morning preferred',
+  createdBy: 'manual',
+  createdAt: phase2Timestamp,
+  updatedAt: phase2Timestamp,
+};
+
+function paginated<T>(items: T[]): PaginatedResponse<T> {
+  return {
+    items,
+    nextCursor: null,
+  };
+}
+
+const phase2Contracts = {
+  services: {
+    method: 'GET',
+    path: '/api/services',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: paginated([phase2Service]),
+  },
+  createService: {
+    method: 'POST',
+    path: '/api/services',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      name: phase2Service.name,
+      category: phase2Service.category,
+      description: phase2Service.description,
+      durationMinutes: phase2Service.durationMinutes,
+      bufferMinutes: phase2Service.bufferMinutes,
+      price: phase2Service.price,
+      currency: phase2Service.currency,
+      active: phase2Service.active,
+    },
+    response: {
+      service: phase2Service,
+    },
+  },
+  updateService: {
+    method: 'PATCH',
+    path: '/api/services/:serviceId',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      name: phase2Service.name,
+    },
+    response: {
+      service: phase2Service,
+    },
+  },
+  staff: {
+    method: 'GET',
+    path: '/api/staff',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: paginated([phase2Staff]),
+  },
+  createStaff: {
+    method: 'POST',
+    path: '/api/staff',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      name: phase2Staff.name,
+      roleTitle: phase2Staff.roleTitle,
+      email: phase2Staff.email,
+      phone: phase2Staff.phone,
+      avatarUrl: phase2Staff.avatarUrl,
+      active: phase2Staff.active,
+    },
+    response: {
+      staff: phase2Staff,
+    },
+  },
+  updateStaff: {
+    method: 'PATCH',
+    path: '/api/staff/:staffId',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      active: phase2Staff.active,
+    },
+    response: {
+      staff: phase2Staff,
+    },
+  },
+  assignStaffService: {
+    method: 'POST',
+    path: '/api/staff/:staffId/services',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      serviceId: phase2Service.id,
+    },
+    response: {
+      assignment: phase2Assignment,
+    },
+  },
+  availabilitySlots: {
+    method: 'GET',
+    path: '/api/availability/slots',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      serviceId: phase2Service.id,
+      date: '2026-06-11',
+      staffId: phase2Staff.id,
+    } satisfies AvailabilitySlotsRequest,
+    response: {
+      date: '2026-06-11',
+      timezone: 'Asia/Dhaka',
+      slots: [
+        {
+          start: '2026-06-11T10:30:00+06:00',
+          end: '2026-06-11T11:10:00+06:00',
+          staffId: phase2Staff.id,
+        },
+      ],
+    } satisfies AvailabilitySlotsResponse,
+  },
+  appointments: {
+    method: 'GET',
+    path: '/api/appointments',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: paginated([phase2Appointment]),
+  },
+  createAppointment: {
+    method: 'POST',
+    path: '/api/appointments',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      customerId: phase2Customer.id,
+      serviceId: phase2Service.id,
+      staffId: phase2Staff.id,
+      startTime: phase2Appointment.startTime,
+      endTime: phase2Appointment.endTime,
+      status: phase2Appointment.status,
+      createdBy: phase2Appointment.createdBy,
+      notes: phase2Appointment.notes,
+    },
+    response: {
+      appointment: phase2Appointment,
+    },
+  },
+  customers: {
+    method: 'GET',
+    path: '/api/customers',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: paginated([phase2Customer]),
+  },
+} satisfies {
+  services: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Service>>;
+  createService: ApiRouteContract<Partial<Service> & TenantScopedRequest, { service: Service }>;
+  updateService: ApiRouteContract<Partial<Service> & TenantScopedRequest, { service: Service }>;
+  staff: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Staff>>;
+  createStaff: ApiRouteContract<Partial<Staff> & TenantScopedRequest, { staff: Staff }>;
+  updateStaff: ApiRouteContract<Partial<Staff> & TenantScopedRequest, { staff: Staff }>;
+  assignStaffService: ApiRouteContract<TenantScopedRequest & { serviceId: string }, { assignment: StaffService }>;
+  availabilitySlots: ApiRouteContract<AvailabilitySlotsRequest, AvailabilitySlotsResponse>;
+  appointments: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Appointment>>;
+  createAppointment: ApiRouteContract<Partial<Appointment> & TenantScopedRequest, { appointment: Appointment }>;
+  customers: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Customer>>;
+};
+
+describe('phase 2 core booking data contracts', () => {
+  it('keeps the phase 2 route metadata aligned for services, staff, availability, customers, and appointments', () => {
+    expect(API_ROUTES.services).toMatchObject({
+      method: 'GET',
+      path: '/api/services',
+      authRequired: true,
+    });
+    expect(API_ROUTES.createService).toMatchObject({
+      method: 'POST',
+      path: '/api/services',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateService).toMatchObject({
+      method: 'PATCH',
+      path: '/api/services/:serviceId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.deleteService).toMatchObject({
+      method: 'DELETE',
+      path: '/api/services/:serviceId',
+      authRequired: true,
+    });
+
+    expect(API_ROUTES.staff).toMatchObject({
+      method: 'GET',
+      path: '/api/staff',
+      authRequired: true,
+    });
+    expect(API_ROUTES.createStaff).toMatchObject({
+      method: 'POST',
+      path: '/api/staff',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateStaff).toMatchObject({
+      method: 'PATCH',
+      path: '/api/staff/:staffId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.assignStaffService).toMatchObject({
+      method: 'POST',
+      path: '/api/staff/:staffId/services',
+      authRequired: true,
+    });
+
+    expect(API_ROUTES.businessHours).toMatchObject({
+      method: 'GET',
+      path: '/api/availability/business-hours',
+      authRequired: true,
+    });
+    expect(API_ROUTES.staffHours).toMatchObject({
+      method: 'GET',
+      path: '/api/availability/staff-hours/:staffId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.availabilitySlots).toMatchObject({
+      method: 'GET',
+      path: '/api/availability/slots',
+      authRequired: true,
+    });
+
+    expect(API_ROUTES.appointments).toMatchObject({
+      method: 'GET',
+      path: '/api/appointments',
+      authRequired: true,
+    });
+    expect(API_ROUTES.createAppointment).toMatchObject({
+      method: 'POST',
+      path: '/api/appointments',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateAppointmentStatus).toMatchObject({
+      method: 'PATCH',
+      path: '/api/appointments/:appointmentId/status',
+      authRequired: true,
+    });
+    expect(API_ROUTES.rescheduleAppointment).toMatchObject({
+      method: 'PATCH',
+      path: '/api/appointments/:appointmentId/reschedule',
+      authRequired: true,
+    });
+
+    expect(API_ROUTES.customers).toMatchObject({
+      method: 'GET',
+      path: '/api/customers',
+      authRequired: true,
+    });
+  });
+
+  it('keeps the phase 2 booking-data samples tenant-scoped and shaped for CRUD and slot lookups', () => {
+    expect(phase2Contracts.services.request.organizationId).toBe('org-1');
+    expect(phase2Contracts.services.response.items).toHaveLength(1);
+    expect(phase2Contracts.createService.response.service.id).toBe(phase2Service.id);
+    expect(phase2Contracts.staff.response.items[0]!.email).toBe('ayesha@example.com');
+    expect(phase2BusinessHour.openTime).toBe('10:00');
+    expect(phase2StaffHour.endTime).toBe('17:30');
+    expect(phase2Contracts.assignStaffService.response.assignment.serviceId).toBe(phase2Service.id);
+    expect(phase2Contracts.availabilitySlots.request.date).toBe('2026-06-11');
+    expect(phase2Contracts.availabilitySlots.response.slots[0]!.staffId).toBe(phase2Staff.id);
+    expect(phase2Contracts.appointments.response.items[0]!.status).toBe('confirmed');
+    expect(phase2Contracts.createAppointment.response.appointment.customerId).toBe(phase2Customer.id);
+    expect(phase2Contracts.customers.response.items[0]!.consentStatus).toBe('opted_in');
   });
 });

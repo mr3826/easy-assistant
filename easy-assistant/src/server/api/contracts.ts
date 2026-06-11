@@ -2,6 +2,7 @@ import type {
   AiSettings,
   Appointment,
   AvailabilitySlot,
+  BusinessHour,
   Channel,
   Conversation,
   Customer,
@@ -15,12 +16,13 @@ import type {
   ReminderDelivery,
   Service,
   Staff,
+  StaffHour,
   StaffService,
   TimeZoneString,
   User,
 } from "../../app/types";
 
-export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 export interface ApiRouteContract<Request, Response> {
   method: HttpMethod;
@@ -50,6 +52,31 @@ export interface AvailabilitySlotsResponse {
   date: ISODateString;
   timezone: TimeZoneString;
   slots: AvailabilitySlot[];
+}
+
+export interface ServiceMutationRequest extends TenantScopedRequest {
+  service: Partial<Service>;
+}
+
+export interface StaffMutationRequest extends TenantScopedRequest {
+  staff: Partial<Staff>;
+}
+
+export interface CustomerMutationRequest extends TenantScopedRequest {
+  customer: Partial<Customer>;
+}
+
+export interface AppointmentMutationRequest extends TenantScopedRequest {
+  appointment: Partial<Appointment>;
+}
+
+export interface BusinessHoursMutationRequest extends TenantScopedRequest {
+  hours: Partial<BusinessHour>[];
+}
+
+export interface StaffHoursMutationRequest extends TenantScopedRequest {
+  staffId: EntityId;
+  hours: Partial<StaffHour>[];
 }
 
 export const API_ROUTES = {
@@ -88,6 +115,11 @@ export const API_ROUTES = {
     path: "/api/services",
     authRequired: true,
   },
+  serviceDetail: {
+    method: "GET",
+    path: "/api/services/:serviceId",
+    authRequired: true,
+  },
   createService: {
     method: "POST",
     path: "/api/services",
@@ -108,6 +140,11 @@ export const API_ROUTES = {
     path: "/api/staff",
     authRequired: true,
   },
+  staffDetail: {
+    method: "GET",
+    path: "/api/staff/:staffId",
+    authRequired: true,
+  },
   createStaff: {
     method: "POST",
     path: "/api/staff",
@@ -115,6 +152,11 @@ export const API_ROUTES = {
   },
   updateStaff: {
     method: "PATCH",
+    path: "/api/staff/:staffId",
+    authRequired: true,
+  },
+  deleteStaff: {
+    method: "DELETE",
     path: "/api/staff/:staffId",
     authRequired: true,
   },
@@ -128,9 +170,19 @@ export const API_ROUTES = {
     path: "/api/availability/business-hours",
     authRequired: true,
   },
+  updateBusinessHours: {
+    method: "PUT",
+    path: "/api/availability/business-hours",
+    authRequired: true,
+  },
   staffHours: {
     method: "GET",
-    path: "/api/availability/staff-hours",
+    path: "/api/availability/staff-hours/:staffId",
+    authRequired: true,
+  },
+  updateStaffHours: {
+    method: "PUT",
+    path: "/api/availability/staff-hours/:staffId",
     authRequired: true,
   },
   availabilitySlots: {
@@ -143,9 +195,19 @@ export const API_ROUTES = {
     path: "/api/appointments",
     authRequired: true,
   },
+  appointmentDetail: {
+    method: "GET",
+    path: "/api/appointments/:appointmentId",
+    authRequired: true,
+  },
   createAppointment: {
     method: "POST",
     path: "/api/appointments",
+    authRequired: true,
+  },
+  updateAppointment: {
+    method: "PATCH",
+    path: "/api/appointments/:appointmentId",
     authRequired: true,
   },
   updateAppointmentStatus: {
@@ -158,9 +220,34 @@ export const API_ROUTES = {
     path: "/api/appointments/:appointmentId/reschedule",
     authRequired: true,
   },
+  deleteAppointment: {
+    method: "DELETE",
+    path: "/api/appointments/:appointmentId",
+    authRequired: true,
+  },
   customers: {
     method: "GET",
     path: "/api/customers",
+    authRequired: true,
+  },
+  customerDetail: {
+    method: "GET",
+    path: "/api/customers/:customerId",
+    authRequired: true,
+  },
+  createCustomer: {
+    method: "POST",
+    path: "/api/customers",
+    authRequired: true,
+  },
+  updateCustomer: {
+    method: "PATCH",
+    path: "/api/customers/:customerId",
+    authRequired: true,
+  },
+  deleteCustomer: {
+    method: "DELETE",
+    path: "/api/customers/:customerId",
     authRequired: true,
   },
   conversations: {
@@ -230,16 +317,43 @@ export interface ApiContractMap {
   login: ApiRouteContract<{ email: string; password: string }, { user: User; memberships: Membership[] }>;
   logout: ApiRouteContract<Record<string, never>, { ok: true }>;
   currentUser: ApiRouteContract<Record<string, never>, { user: User; memberships: Membership[] }>;
+
   services: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Service>>;
-  createService: ApiRouteContract<Partial<Service> & TenantScopedRequest, { service: Service }>;
-  updateService: ApiRouteContract<Partial<Service> & TenantScopedRequest, { service: Service }>;
+  serviceDetail: ApiRouteContract<TenantScopedRequest & { serviceId: EntityId }, { service: Service }>;
+  createService: ApiRouteContract<ServiceMutationRequest, { service: Service }>;
+  updateService: ApiRouteContract<ServiceMutationRequest & { serviceId: EntityId }, { service: Service }>;
+  deleteService: ApiRouteContract<TenantScopedRequest & { serviceId: EntityId }, { service: Service }>;
+
   staff: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Staff>>;
-  createStaff: ApiRouteContract<Partial<Staff> & TenantScopedRequest, { staff: Staff }>;
-  assignStaffService: ApiRouteContract<TenantScopedRequest & { serviceId: EntityId }, { assignment: StaffService }>;
+  staffDetail: ApiRouteContract<TenantScopedRequest & { staffId: EntityId }, { staff: Staff }>;
+  createStaff: ApiRouteContract<StaffMutationRequest, { staff: Staff }>;
+  updateStaff: ApiRouteContract<StaffMutationRequest & { staffId: EntityId }, { staff: Staff }>;
+  deleteStaff: ApiRouteContract<TenantScopedRequest & { staffId: EntityId }, { staff: Staff }>;
+  assignStaffService: ApiRouteContract<TenantScopedRequest & { staffId: EntityId; serviceId: EntityId }, { assignment: StaffService }>;
+
+  businessHours: ApiRouteContract<TenantScopedRequest, PaginatedResponse<BusinessHour>>;
+  updateBusinessHours: ApiRouteContract<BusinessHoursMutationRequest, { businessHours: BusinessHour[] }>;
+  staffHours: ApiRouteContract<TenantScopedRequest & { staffId: EntityId }, PaginatedResponse<StaffHour>>;
+  updateStaffHours: ApiRouteContract<StaffHoursMutationRequest, { staffHours: StaffHour[] }>;
   availabilitySlots: ApiRouteContract<AvailabilitySlotsRequest, AvailabilitySlotsResponse>;
+
   appointments: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Appointment>>;
-  createAppointment: ApiRouteContract<Partial<Appointment> & TenantScopedRequest, { appointment: Appointment }>;
+  appointmentDetail: ApiRouteContract<TenantScopedRequest & { appointmentId: EntityId }, { appointment: Appointment }>;
+  createAppointment: ApiRouteContract<AppointmentMutationRequest, { appointment: Appointment }>;
+  updateAppointment: ApiRouteContract<AppointmentMutationRequest & { appointmentId: EntityId }, { appointment: Appointment }>;
+  updateAppointmentStatus: ApiRouteContract<TenantScopedRequest & { appointmentId: EntityId; status: Appointment["status"] }, { appointment: Appointment }>;
+  rescheduleAppointment: ApiRouteContract<
+    TenantScopedRequest & { appointmentId: EntityId } & Partial<Pick<Appointment, "startTime" | "endTime" | "staffId" | "status">>,
+    { appointment: Appointment }
+  >;
+  deleteAppointment: ApiRouteContract<TenantScopedRequest & { appointmentId: EntityId }, { appointment: Appointment }>;
+
   customers: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Customer>>;
+  customerDetail: ApiRouteContract<TenantScopedRequest & { customerId: EntityId }, { customer: Customer }>;
+  createCustomer: ApiRouteContract<CustomerMutationRequest, { customer: Customer }>;
+  updateCustomer: ApiRouteContract<CustomerMutationRequest & { customerId: EntityId }, { customer: Customer }>;
+  deleteCustomer: ApiRouteContract<TenantScopedRequest & { customerId: EntityId }, { customer: Customer }>;
+
   conversations: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Conversation>>;
   messages: ApiRouteContract<TenantScopedRequest & { conversationId: EntityId }, PaginatedResponse<Message>>;
   channels: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Channel>>;

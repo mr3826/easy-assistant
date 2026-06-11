@@ -38,6 +38,106 @@ CREATE TABLE IF NOT EXISTS locations (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS services (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT,
+  description TEXT,
+  duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
+  buffer_minutes INTEGER NOT NULL DEFAULT 0 CHECK (buffer_minutes >= 0),
+  price INTEGER NOT NULL DEFAULT 0 CHECK (price >= 0),
+  currency TEXT NOT NULL DEFAULT 'BDT',
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS staff (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  role_title TEXT,
+  email TEXT,
+  phone TEXT,
+  avatar_url TEXT,
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS staff_services (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  staff_id TEXT NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  service_id TEXT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE (staff_id, service_id)
+);
+
+CREATE TABLE IF NOT EXISTS business_hours (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  weekday INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+  open_time TEXT NOT NULL,
+  close_time TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS staff_hours (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  staff_id TEXT NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  weekday INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  name TEXT,
+  phone TEXT NOT NULL,
+  email TEXT,
+  source_channel TEXT NOT NULL DEFAULT 'manual',
+  consent_status TEXT NOT NULL DEFAULT 'unknown' CHECK (consent_status IN ('unknown', 'opted_in', 'opted_out')),
+  last_seen_at INTEGER,
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  customer_id TEXT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  service_id TEXT NOT NULL REFERENCES services(id) ON DELETE RESTRICT,
+  staff_id TEXT NOT NULL REFERENCES staff(id) ON DELETE RESTRICT,
+  channel_id TEXT,
+  conversation_id TEXT,
+  start_time INTEGER NOT NULL,
+  end_time INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled', 'no_show', 'rescheduled')),
+  notes TEXT,
+  created_by TEXT NOT NULL CHECK (created_by IN ('manual', 'ai', 'system')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS memberships (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -64,4 +164,11 @@ CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_user_id ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_locations_organization_id ON locations(organization_id);
+CREATE INDEX IF NOT EXISTS idx_services_scope ON services(organization_id, location_id, active, created_at);
+CREATE INDEX IF NOT EXISTS idx_staff_scope ON staff(organization_id, location_id, active, created_at);
+CREATE INDEX IF NOT EXISTS idx_staff_services_scope ON staff_services(organization_id, location_id, staff_id, service_id, active);
+CREATE INDEX IF NOT EXISTS idx_business_hours_scope ON business_hours(organization_id, location_id, weekday, active);
+CREATE INDEX IF NOT EXISTS idx_staff_hours_scope ON staff_hours(organization_id, location_id, staff_id, weekday, active);
+CREATE INDEX IF NOT EXISTS idx_customers_scope ON customers(organization_id, location_id, active, created_at);
+CREATE INDEX IF NOT EXISTS idx_appointments_scope ON appointments(organization_id, location_id, start_time, status);
 `;

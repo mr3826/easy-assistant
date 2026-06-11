@@ -9,6 +9,8 @@ The repository now has its first real backend/auth foundation instead of a front
 
 The app shell is also more MVP-focused: primary navigation now emphasizes the WhatsApp booking core modules, deferred modules are hidden from primary routing, and Privacy/Terms placeholder pages exist for launch-readiness and compliance preparation.
 
+Phase 2 is now visible in the repo as a booking-data foundation: service, staff, customer, appointment, and availability contract surfaces are modeled in types/schema lists and are covered by focused backend tests, while the remaining work is still the persistent CRUD and handler wiring.
+
 ## Acceptance Criteria Status
 
 | Brief area | Status | Evidence in repo | Missing to reach MVP | Next phase |
@@ -17,10 +19,11 @@ The app shell is also more MVP-focused: primary navigation now emphasizes the Wh
 | Organization/location tenant model | Implemented | Signup now creates user, organization, location, membership, and session records together | Tenant-scoped CRUD for the rest of the MVP modules | Phase 1 complete |
 | Services CRUD | Partial | Services page exists | Persistent service model, CRUD API, validation, delete guard for active appointments | Phase 2 |
 | Staff CRUD and service assignment | Partial | Staff page exists | Persistent staff model, staff_services join, API, validation | Phase 2 |
+| Availability settings | Partial | Business-hours/staff-hours schema entries and route metadata exist | Persistent business/staff hours APIs, validation, and UI wiring | Phase 2 |
 | Availability engine | Partial | `src/server/domain/scheduling.ts` generates slots using service duration, staff assignment, business/staff hours, timezone, buffers, and appointment conflicts | API route implementation, persistence, holiday/exception support, transactional booking integration | Phase 3 |
-| Appointment lifecycle | Partial | Appointments page exists | Persistent appointments, statuses, create/cancel/reschedule/complete/no-show APIs | Phase 2 |
+| Appointment lifecycle | Partial | Appointments page exists; status helpers and route contract samples are in tests | Persistent appointments, statuses, create/cancel/reschedule/complete/no-show APIs | Phase 2 |
 | Conflict prevention | Partial | `src/server/domain/appointments.ts` detects blocking appointment overlaps by organization, location, and staff | Database transaction enforcement during create/reschedule | Phase 3 |
-| Customers | Missing | No customer domain/API found | Customer table, phone dedupe, consent fields, export/delete | Phase 2 |
+| Customers | Partial | Customer type/schema list entries and route contract samples exist | Customer table, phone dedupe, consent fields, export/delete | Phase 2 |
 | Conversations | Partial | Conversations page exists | Persistent conversations/messages, human takeover, manual replies | Phase 4 |
 | WhatsApp integration | Missing | Channels page exists | Secure credential storage, webhook verify/ingest/send/templates | Phase 5 |
 | AI receptionist workflow | Missing | AI settings page exists | Intent detection, tool-calling booking flow, AI action logs, guardrails | Phase 6 |
@@ -30,13 +33,14 @@ The app shell is also more MVP-focused: primary navigation now emphasizes the Wh
 | Public booking link | Missing | No public booking route found | Public service list, slot picker, customer form, confirmation | Next phase after core MVP |
 | Privacy/compliance hooks | Partial | `/privacy` and `/terms` placeholder pages exist; customer consent and audit log fields exist in domain/migration | Customer export/delete UI/API, retention settings, localized privacy copy, opt-out handling | Phase 8 |
 | Security acceptance | Partial | Password hashing, HttpOnly cookie sessions, and API auth are in place | Rate limits, webhook verification, deployment secret hygiene, and broader authorization hardening | Phase 1 and Phase 5 |
-| Quality gates | Partial | Vitest harness, auth tests, and scheduling/conflict tests exist | Service/staff CRUD, webhook, AI tool-call, migration/seed coverage | All phases |
+| Quality gates | Partial | Vitest harness, auth tests, scheduling/conflict tests, and phase-2 booking-data contract tests exist | Service/staff CRUD, webhook, AI tool-call, migration/seed coverage | All phases |
 
 ## Verification Coverage Status
 
 | Coverage area required by brief | Status | Notes |
 |---|---|---|
 | Auth | Partial | Existing tests cover current localStorage auth behavior, which is explicitly not MVP-compliant and should be replaced when real auth lands. |
+| Phase 2 booking-data route contracts | Covered at contract level | `src/test/backend-contracts.test.ts` now verifies service, staff, availability, customer, and appointment route metadata plus typed tenant-scoped request/response samples. |
 | Scheduling slot generation | Covered at domain level | `src/test/scheduling-domain.test.ts` verifies business/staff hours, staff-service assignment, timezone output, and conflict exclusion. |
 | Appointment conflict prevention | Covered at domain level | `src/test/scheduling-domain.test.ts` verifies overlap detection, non-blocking statuses, and tenant/location scoping. |
 | Service CRUD | Missing | Add tests when persistent service API/domain exists. |
@@ -64,7 +68,7 @@ Exit checks: auth/session tests pass, tenant records created on signup, no local
 
 ### Phase 2: Core Booking Data
 
-Goal: persist the entities that scheduling and AI booking need.
+Goal: persist the booking-data foundation that scheduling and AI booking need.
 
 Parallel lanes:
 
@@ -77,7 +81,7 @@ Parallel lanes:
 | Appointments | CRUD, statuses, lifecycle routes | Customers lane |
 | Availability settings | Business hours and staff hours persistence | Services/Staff lanes |
 
-Exit checks: services/staff/customers/appointments are persistent, tenant-scoped, and covered by CRUD tests.
+Exit checks: services/staff/customers/appointments/availability settings are tenant-scoped across schema, route contracts, and tests, with CRUD handlers ready for scheduling and AI booking.
 
 ### Phase 3: Scheduling Engine
 
@@ -174,7 +178,7 @@ Exit checks: setup docs are current, quality commands pass, and deferred modules
 
 ## Immediate Next Tasks
 
-1. Complete tenant-scoped CRUD for services, staff, customers, and appointments on top of the new backend foundation.
+1. Complete tenant-scoped CRUD for services, staff, customers, appointments, and availability settings on top of the new backend foundation.
 2. Expose `GET /api/availability/slots` using the scheduling domain and enforce conflict checks in appointment create/reschedule.
 3. Add seed data and demo workflows for the new backend so the MVP can be exercised end to end.
 4. Expand the quality gates around the new API surface, especially auth/session and route-contract coverage.
