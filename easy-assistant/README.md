@@ -1,6 +1,6 @@
-# BookingAI Admin Dashboard
+# Easy Assistant Admin Dashboard
 
-**BookingAI** is an AI-powered appointment scheduling and customer communication platform. This repository contains the admin dashboard — a React + Vite + Tailwind CSS single-page application for managing bookings, staff, customers, channels, billing, and AI assistant settings.
+**Easy Assistant** is an AI receptionist workspace for local service businesses. This repository contains the admin dashboard - a React + Vite + Tailwind CSS single-page application for managing bookings, staff, services, channels, AI settings, and the launch-readiness surface around them.
 
 ---
 
@@ -16,24 +16,32 @@
 
 ---
 
-## Features
+## Current MVP Surface
+
+Phase 7 is live in the repo: dashboard metrics now use real appointment/conversation data, and reminder scheduling plus delivery logging are part of the backend MVP surface.
 
 | Module | Description |
 |---|---|
-| **Dashboard** | Overview stats, bookings chart, channel distribution, recent bookings table |
-| **Appointments** | Search, filter, and manage all booking records |
-| **Conversations** | AI chat log viewer with conversation list and message panel |
+| **Dashboard** | Live operational overview with appointment, conversation, and reminder signals |
+| **Appointments** | Search, filter, and manage booking records |
+| **Conversations** | AI chat log viewer with conversation list, message panel, and handoff state |
 | **Staff Management** | Team roster with roles, contact info, availability, and booking count |
 | **Services Setup** | Service catalog with duration, pricing, and category |
 | **Availability** | Per-day working hours configuration |
-| **Channels** | WhatsApp, Facebook, Telegram, Web Widget connection status |
-| **Marketing** | Appointment reminder automation with message templates |
-| **AI Settings** | AI assistant name, tone, language, greeting, handoff, auto-confirm, and reminder settings |
-| **Billing** | Current plan, usage metrics, available plans, payment method, invoice history |
-| **Analytics** | KPI cards, booking trends, no-show rate, channel breakdown, AI performance |
-| **Support** | Ticket management, live chat widget, FAQ accordion |
+| **Channels** | WhatsApp, Facebook, Telegram, and web widget connection status |
+| **AI Settings** | Assistant name, tone, language, greeting, handoff, auto-confirm, and reminder settings |
 | **Settings** | Profile, business, notifications, and security tabs |
-| **Authentication** | Login / Signup / Onboarding wizard with AuthGuard route protection |
+| **Privacy / Terms** | Launch-ready legal pages for the MVP pilot |
+| **Authentication** | Login, signup, onboarding, and AuthGuard route protection |
+
+### Non-MVP Redirects
+
+| Route | Behavior |
+|---|---|
+| **Marketing** | Redirects to `/dashboard` |
+| **Billing** | Redirects to `/dashboard` |
+| **Analytics** | Redirects to `/dashboard` |
+| **Support** | Redirects to `/dashboard` |
 
 ---
 
@@ -157,14 +165,13 @@ Opens at **http://localhost:5173**
 npm run backend:dev
 ```
 
-Starts the phase-1 backend server on **http://localhost:3000** by default.
+Starts the backend server on **http://localhost:3000** by default.
 Keep `API_BASE_URL` and `VITE_API_BASE_URL` pointed at the same `/api` prefix.
-The focused backend test harness now also covers the phase-2 booking-data contract surface plus the phase-4 conversation, channel, takeover, and message flow.
 
 ### Type Check
 
 ```bash
-npx tsc --noEmit
+npm run typecheck
 ```
 
 ### Build
@@ -181,7 +188,7 @@ Outputs production assets to `dist/`.
 npm run lint
 ```
 
-### Test
+### Frontend Tests
 
 ```bash
 npm run test:run
@@ -193,14 +200,28 @@ npm run test:run
 npm run backend:test
 ```
 
-Runs the focused auth/session and backend contract tests that verify the
-phase-1 foundation, the phase-2 booking-data surface, the phase-4 conversation runtime, the phase-5 WhatsApp runtime, and the phase-6 AI receptionist runtime.
+Runs the focused auth/session and backend contract tests that cover the MVP foundation, booking-data contracts, conversation and WhatsApp runtime, AI receptionist flow, and the phase-7 reminder/dashboard surface.
 
 ### Preview Production Build
 
 ```bash
 npm run preview
 ```
+
+### Demo Setup
+
+Run the demo bootstrap flow, then start the backend and frontend:
+
+```bash
+npm run demo:seed
+npm run backend:dev
+npm run dev
+```
+
+Demo login:
+
+- `demo@easyassistant.local`
+- `demo12345`
 
 ---
 
@@ -245,6 +266,8 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 | `/login` | `LoginPage` | Public |
 | `/signup` | `SignupPage` | Public |
 | `/onboarding` | `OnboardingWizard` | Public |
+| `/privacy` | `LegalPrivacyPage` | Public |
+| `/terms` | `LegalTermsPage` | Public |
 | `/dashboard` | `DashboardHome` | `AuthGuard` |
 | `/appointments` | `AppointmentsPage` | `AuthGuard` |
 | `/conversations` | `ConversationsPage` | `AuthGuard` |
@@ -252,11 +275,11 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 | `/services` | `ServicesSetup` | `AuthGuard` |
 | `/availability` | `AvailabilityPage` | `AuthGuard` |
 | `/channels` | `ChannelConnection` | `AuthGuard` |
-| `/marketing` | `MarketingPage` | `AuthGuard` |
+| `/marketing` | Redirect → `/dashboard` | `AuthGuard` |
 | `/ai-settings` | `AISettings` | `AuthGuard` |
-| `/billing` | `BillingPage` | `AuthGuard` |
-| `/analytics` | `AnalyticsPage` | `AuthGuard` |
-| `/support` | `SupportPanel` | `AuthGuard` |
+| `/billing` | Redirect → `/dashboard` | `AuthGuard` |
+| `/analytics` | Redirect → `/dashboard` | `AuthGuard` |
+| `/support` | Redirect → `/dashboard` | `AuthGuard` |
 | `/settings` | `SettingsPage` | `AuthGuard` |
 
 ---
@@ -275,122 +298,12 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 
 ---
 
-## Audit Report
+## Launch Notes
 
-**Date:** 2026-05-23  
-**Scope:** Full codebase — config, UI components (44), pages (16), layout, guards, contexts, hooks, styles  
-**Build:** `npm run build` **0 errors** · `npx tsc --noEmit` **0 errors** · `npm run dev` **HTTP 200**
-
----
-
-### Build & Type Safety ✅
-
-| Check | Status | Notes |
-|---|---|---|
-| `npx tsc --noEmit` | ✅ **0 errors** | Strict mode, `noUnusedLocals`, `noUnusedParameters` all passing |
-| `npm run build` | ✅ **0 errors** | 37s build, 26 chunks, 16 routes bundled |
-| `npm run dev` | ✅ **HTTP 200** | HMR + React Refresh live, Vite v6.3.5 |
-| `dangerouslySetInnerHTML` | ✅ **None** | No XSS surface |
-| Orphaned `console.error` | ✅ **1** | `ErrorBoundary.tsx:27` — intentional, acceptable in error boundary |
-
----
-
-### Architecture
-
-| Layer | Files | Status |
-|---|---|---|
-| Entry | `src/main.tsx` | ✅ Clean, 5-line `createRoot` |
-| Routing | `src/app/App.tsx` | ✅ 16 lazy-loaded routes, Suspense, AuthGuard wrapping |
-| Layout | `DashboardLayout.tsx` | ✅ Bespoke sidebar + topbar; `useState`-driven mobile drawer |
-| auth | `AuthContext.tsx` | ✅ API-backed session hydration, login, logout, and signup |
-| Guards | `AuthGuard.tsx`, `index.tsx` | ✅ Redirect-to-login + `ProtectedRoute` + `LoadingFallback` |
-| Hooks | 4 custom hooks | ✅ `useDebounce`, `useLocalStorage`, `useMediaQuery`, `useOnClickOutside` |
-| Constants | `LABELS`, `ROUTES` | ✅ `as const` inference |
-| Shadcn UI | 44 components | ✅ All Radix-primitive wrapped, consistent `cn()` pattern |
-
----
-
-### UI Components Audit
-
-| Finding | Severity | Detail |
-|---|---|---|
-| `tabs.tsx` — `data-state` not forwarded | 🟠 High | `TabsTrigger` does not pass `data-state` from Radix props; CSS selectors targeting `[data-slot=tabs-trigger][data-state=active]` silently fail. Fix: add `data-state` to `...props` spread or explicitly map it. |
-| `chart.tsx` — `as any` cluster | 🟡 Medium | 10x `(item as any).value/name/dataKey/payload` casts in `ChartTooltipContent` and `ChartLegendContent`. Root cause: recharts does not export `Payload<ValueType, NameType>`. Acceptable for now; consider adding `type ChartPayload = Record<string, unknown>` locally if stricter typing is needed. |
-| `error/DashboardLayout.tsx` — unused route | 🟡 Medium | `AlertDialog` route was an unimplemented plan item (`/orca`); removed during this session. |
-| `index.css` — `globals.css` loaded after `default_theme.css` | 🟡 Medium | `default_theme.css` is the single source of truth per its `KEEP_IN_SYNC` comment, but imported *first* — `globals.css` redeclares the same variables with different values and overrides it. Risk: silent token drift. Fix: remove the conflicting block from `globals.css` or swap the import order. |
-| `ImageWithFallback.tsx` — `data-original-url` attribute on fallback `[src]` | 🟢 Low | `data-original-url={src}` on the fallback SVG `img` tag — harmless but leaks the failed URL into the DOM. Consider removing it. |
-
----
-
-### Page Components Audit
-
-| Finding | Severity | Detail |
-|---|---|---|
-| `LoginPage` — empty `catch {}` | 🟡 Medium | `onSubmit: catch { /* handle error */ }` — swallows any API failure silently. At minimum add `console.error(err)` or an error toast. |
-| `LoginPage` — manual password toggle button | 🟢 Low | Password visibility toggle is a plain `<button>` rather than using the `Input` suffix pattern. Not a bug — stylistic inconsistency. |
-| `SignupPage/ServicesSetup/StaffManagement` — no validation | 🟢 Low | Password fields, select fields, and contact fields have no Zod schema. UI-only stub data. |
-| `DashboardLayout` — hardcoded user "John Doe" | 🟢 Low | Avatar/name is still hardcoded instead of reading from `AuthContext`. |
-| All pages — placeholder data | 🟢 Info | All 16 pages render static mock arrays; no API layer yet. |
-
----
-
-### Styling Audit
-
-| Finding | Severity | Detail |
-|---|---|---|
-| `default_theme.css` vs `globals.css` duplicate `--primary` | 🔴 High | `default_theme.css` sets `--primary: #030213` (near-black); `globals.css` sets `--primary: #2563eb` (blue). The blue wins at runtime. This was almost certainly unintentional — pick one file. |
-| `@theme inline` naming mismatch in `globals.css` | 🟡 Medium | Sidebar tokens in `globals.css` define `--sidebar-foreground: oklch(0.205 0 0)` while `default_theme.css` defines `--sidebar-foreground: oklch(0.145 0 0)`. Same race condition; whichever imports last wins. |
-| `globals.css` `@custom-variant dark` | 🟢 Info | Correctly scoped and matches Tailwind 4. |
-
----
-
-### Accessibility
-
-| Finding | Severity | Detail |
-|---|---|---|
-| `DashboardLayout` — `Logout` link uses `to="/login"` | 🟡 Medium | Logout navigates back to login without calling `logout()` from `AuthContext`. Should invoke `useAuth().logout()` on click. |
-| `DashboardLayout` — `button` search input | ✅ None | `Input` gives `role="textbox"` automatically via the label pattern |
-| `ErrorBoundary` — Refresh button | ✅ None | Actionable fallback; no ARIA gaps |
-| `DashboardLayout` — `aria-label="Toggle Sidebar"` on rail | ✅ None | Present and meaningful |
-| `LoginPage` — `aria-invalid` and descriptive error text | ✅ None | When `errors.email` or `errors.password` are set |
-| `LoadingFallback` — `role="status"` + `aria-label="Loading"` | ✅ None | Correct lazy/suspense fallback |
-| `form.tsx` — `FormControl` `aria-describedby` | ✅ None | Includes `-form-item-description` + `-form-item-message` IDs |
-| `Input` label pattern | ✅ None | `<Label htmlFor={id}>` + `<Input id={id}>` where paired |
-| `environmentScore` due in Helmet `window` | 🟢 Low | `const canonical = typeof window !== 'undefined' ? window.location.href : ''` — always truthy in this SPA context. Not an issue; `Helmet.tsx` usage is minimal. |
-
----
-
-### Security
-
-| Finding | Severity | Detail |
-|---|---|---|
-| `HELMET.tsx` — No CSP | 🟢 Info | No `Content-Security-Policy` meta; acceptable for local dev. Consider hardening for production. |
-| `ImageWithFallback` — `data-original-url` in DOM | 🟢 Low | Leaks failed URL; not XSS since it's set from `src` |
-
----
-
-## Code Quality Summary
-
-| Metric | Before Session | After Session |
-|---|---|---|
-| `tsc --noEmit` errors | 25+ | **0** |
-| `npm run build` errors | multiple | **0** |
-| Dead UI files | sidebar.tsx + use-mobile.ts + alert-dialog.tsx (904 lines) | **Removed** |
-| `as any` usage | many | 10 (all in `chart.tsx`, unit-justified) |
-
----
+The remaining non-MVP routes are intentionally redirected back to the dashboard. The launch surface is now centered on the live booking core, conversations, reminders, dashboard metrics, and the legal pages.
 
 ## Next Steps
 
-This list is historical context from the pre-phase-1 audit; items 5 and 6 have now been addressed by the backend/auth pass.
-
-1. Resolve the `default_theme.css` vs `globals.css` theme duplication — pick a single source of truth.
-2. Wire `data-state` through `TabsTrigger` for reliable active-state styling.
-3. Replace `AlertDialog`/`AlertDialogContent` usage with `Dialog` primitives or re-add the missing `alert-dialog.tsx`.
-4. Add Zod schemas to `SignupPage`, `ServicesSetup`, `StaffManagement`.
-5. Implement real `AuthContext.login` calling a backend endpoint.
-6. Connect `Logout` link in `DashboardLayout` to `useAuth().logout()`.
-7. Consider adding `onError` telemetry or Sentry integration to `ErrorBoundary`.
-8. Wrap `Helmet.tsx` usage in a `<HelmetProvider>` if SSR is ever needed.
-
----
+1. Keep the seeded demo flow in sync with future schema changes so it remains a reliable first-run path.
+2. Review retention and support copy before any broader production rollout.
+3. Avoid reintroducing marketing, billing, analytics, or support modules into the primary navigation until they are intentionally shipped.

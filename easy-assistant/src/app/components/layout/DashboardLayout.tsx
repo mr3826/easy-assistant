@@ -27,7 +27,6 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Badge } from '../ui/badge';
 import { useAuth } from '../../context/AuthContext';
 
 interface DashboardLayoutProps {
@@ -49,8 +48,11 @@ const menuItems = [
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, session } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const user = session?.user ?? null;
+  const userLabel = user?.name?.trim() || user?.email?.trim() || 'Account';
+  const userInitials = getInitials(user?.name || user?.email || 'Account');
 
   const handleLogout = () => {
     void logout();
@@ -159,23 +161,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Notifications */}
-              <Button variant="ghost" size="sm" className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                aria-label="Notifications"
+                title="Notifications"
+                onClick={() => {}}
+              >
                 <Bell className="w-5 h-5" />
-                <Badge className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center p-0 bg-red-500">
-                  3
-                </Badge>
               </Button>
 
-              {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
                     <Avatar className="w-8 h-8">
                       <AvatarImage src="" />
-                      <AvatarFallback className="bg-blue-600 text-white">JD</AvatarFallback>
+                      <AvatarFallback className="bg-blue-600 text-white">{userInitials}</AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:inline">John Doe</span>
+                    <span className="hidden md:inline">{userLabel}</span>
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -201,4 +205,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     </div>
   );
+}
+
+function getInitials(value: string) {
+  const parts = String(value ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return 'A';
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
+    .slice(0, 2);
 }

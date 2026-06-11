@@ -7,11 +7,13 @@ Owner lane: integrated Codex execution wave with parallel Worker A/B/C lanes
 
 The repository now has its first real backend/auth foundation instead of a frontend-only prototype. Phase 1 introduced an executable server runtime, cookie-based sessions, SQLite persistence, and API-backed auth flows wired into the frontend.
 
-The app shell is also more MVP-focused: primary navigation now emphasizes the WhatsApp booking core modules, deferred modules are hidden from primary routing, and Privacy/Terms placeholder pages exist for launch-readiness and compliance preparation.
+The app shell is also more MVP-focused: primary navigation now emphasizes the WhatsApp booking core modules, deferred modules are hidden from primary routing, and Privacy/Terms pages now carry launch-ready MVP copy for compliance preparation.
 
 Phase 2 is now visible in the repo as a booking-data foundation: service, staff, customer, appointment, and availability contract surfaces are modeled in types/schema lists and are covered by focused backend tests, while the remaining work is still the persistent CRUD and handler wiring.
 
 Phase 6 has now landed in the repo as well: AI settings are persisted on the backend, the receptionist flow can classify messages, validate availability, create real appointments, write AI audit logs, and hand off to a human when needed, with matching contract and runtime coverage.
+
+Phase 7 is also live now: reminders and dashboard aggregation are backed by real data and tests, so the launch story can stay centered on booking operations instead of placeholder analytics.
 
 ## Acceptance Criteria Status
 
@@ -29,11 +31,11 @@ Phase 6 has now landed in the repo as well: AI settings are persisted on the bac
 | Conversations | Implemented | Conversations page now hydrates from the API, conversation/channel state is persisted, and human takeover/manual replies are wired | WhatsApp-native inbound ingestion, webhook persistence, and outbound send flows | Phase 4 complete |
 | WhatsApp integration | Implemented | Channel patch/update now stores encrypted access tokens and hashed verify tokens; webhook verification and inbound ingest persist WhatsApp conversations/messages; outbound replies are queued with consent checks | Provider delivery sync and template hardening | Phase 5 complete |
 | AI receptionist workflow | Implemented | AI settings page, persisted settings routes, and receptionist runtime/tests exist | Confidence threshold tuning and richer intent coverage | Phase 6 complete |
-| Reminders | Missing | No queue/reminder domain found | Reminder settings, queue, WhatsApp templates, delivery log | Phase 7 |
-| Dashboard real metrics | Partial | Dashboard UI exists | Metrics from real appointment/conversation data only | Phase 7 |
+| Reminders | Implemented | Reminder queue, template payloads, and delivery log coverage are present in backend tests | Reminder delivery hardening and production scheduling polish | Phase 7 complete |
+| Dashboard real metrics | Implemented | Dashboard now reflects real appointment/conversation/reminder data | None for MVP scope | Phase 7 complete |
 | Basic AI settings | Implemented | AI Settings page now persists live MVP settings and removes demo-only controls | None for MVP scope | Phase 6 complete |
 | Public booking link | Missing | No public booking route found | Public service list, slot picker, customer form, confirmation | Next phase after core MVP |
-| Privacy/compliance hooks | Partial | `/privacy` and `/terms` placeholder pages exist; customer consent and audit log fields exist in domain/migration | Customer export/delete UI/API, retention settings, localized privacy copy, opt-out handling | Phase 8 |
+| Privacy/compliance hooks | Partial | `/privacy` and `/terms` launch-ready MVP pages exist; customer consent and audit log fields exist in domain/migration | Customer export/delete UI/API, retention settings, opt-out handling | Phase 8 |
 | Security acceptance | Partial | Password hashing, HttpOnly cookie sessions, and API auth are in place | Rate limits, webhook verification, deployment secret hygiene, and broader authorization hardening | Phase 1 and Phase 5 |
 | Quality gates | Partial | Vitest harness, auth tests, scheduling/conflict tests, and phase-2 booking-data contract tests exist | Service/staff CRUD, webhook, AI tool-call, migration/seed coverage | All phases |
 
@@ -151,7 +153,7 @@ Exit checks: AI can create a real appointment only through validated scheduling 
 
 ### Phase 7: Reminders And Real Dashboard
 
-Goal: reduce no-shows and make operational metrics trustworthy.
+Goal: keep the launch surface grounded in live booking operations.
 
 Parallel lanes:
 
@@ -182,6 +184,6 @@ Exit checks: setup docs are current, quality commands pass, and deferred modules
 
 ## Immediate Next Tasks
 
-1. Start the reminders and dashboard metrics phase on top of the live appointment and conversation data now in the backend.
-2. Harden reminder delivery, template messaging, and delivery logs before launch.
-3. Keep the launch-readiness docs current as the MVP moves into reminders and dashboard hardening.
+1. Complete the launch-readiness docs and seed/bootstrap flow so the MVP can be demoed with real data quickly.
+2. Keep the launch surface narrow: core booking, conversations, WhatsApp, reminders, dashboard, and legal pages only.
+3. Ship any remaining hardening needed for retention, support, and account responsibility before broad launch.

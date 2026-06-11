@@ -7,6 +7,7 @@ import { createPhase2Service } from './phase2.mjs';
 import { createPhase4Service } from './phase4.mjs';
 import { createPhase5Service } from './phase5.mjs';
 import { createPhase6Service } from './phase6.mjs';
+import { createPhase7Service } from './phase7.mjs';
 import {
   buildSessionCookie,
   clearSessionCookie,
@@ -24,6 +25,7 @@ const phase2 = createPhase2Service(repository);
 const phase4 = createPhase4Service(repository);
 const phase5 = createPhase5Service(repository, { credentialSecret: config.whatsappCredentialSecret });
 const phase6 = createPhase6Service(repository, { phase2, phase4 });
+const phase7 = createPhase7Service(repository);
 
 const server = http.createServer(async (req, res) => {
   const requestOrigin = req.headers.origin;
@@ -181,6 +183,33 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/api/dashboard/summary' && method === 'GET') {
+      jsonResponse(res, 200, phase7.getDashboardSummary(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/reminders' && method === 'GET') {
+      jsonResponse(res, 200, phase7.listReminders(scope), requestOrigin);
+      return;
+    }
+
+    const reminderMatch = pathname.match(/^\/api\/reminders\/([^/]+)$/);
+    if (reminderMatch && method === 'GET') {
+      jsonResponse(res, 200, phase7.getReminder(scope, decodeURIComponent(reminderMatch[1])), requestOrigin);
+      return;
+    }
+
+    const reminderDeliveriesMatch = pathname.match(/^\/api\/reminders\/([^/]+)\/deliveries$/);
+    if (reminderDeliveriesMatch && method === 'GET') {
+      jsonResponse(
+        res,
+        200,
+        phase7.listReminderDeliveries(scope, decodeURIComponent(reminderDeliveriesMatch[1])),
+        requestOrigin,
+      );
+      return;
+    }
+
     const channelMatch = pathname.match(/^\/api\/channels\/([^/]+)$/);
     if (channelMatch) {
       const channelId = decodeURIComponent(channelMatch[1]);
@@ -197,7 +226,9 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/ai/receptionist/run' && method === 'POST') {
       const body = await readJsonBody(req);
-      jsonResponse(res, 200, phase6.runReceptionist(scope, body, { actorUserId: session.user.id }), requestOrigin);
+      const result = phase6.runReceptionist(scope, body, { actorUserId: session.user.id });
+      syncReminderAfterAppointment(scope, result.appointment);
+      jsonResponse(res, 200, result, requestOrigin);
       return;
     }
 
@@ -409,7 +440,9 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/appointments' && method === 'POST') {
       const body = await readJsonBody(req);
-      jsonResponse(res, 201, phase2.createAppointment(scope, unwrapPayload(body, 'appointment')), requestOrigin);
+      const result = phase2.createAppointment(scope, unwrapPayload(body, 'appointment'));
+      syncReminderAfterAppointment(scope, result.appointment);
+      jsonResponse(res, 201, result, requestOrigin);
       return;
     }
 
@@ -422,7 +455,9 @@ const server = http.createServer(async (req, res) => {
       }
       if (method === 'PATCH') {
         const body = await readJsonBody(req);
-        jsonResponse(res, 200, phase2.updateAppointment(scope, appointmentId, unwrapPayload(body, 'appointment')), requestOrigin);
+        const result = phase2.updateAppointment(scope, appointmentId, unwrapPayload(body, 'appointment'));
+        syncReminderAfterAppointment(scope, result.appointment);
+        jsonResponse(res, 200, result, requestOrigin);
         return;
       }
       if (method === 'DELETE') {
@@ -435,7 +470,9 @@ const server = http.createServer(async (req, res) => {
     if (appointmentStatusMatch && method === 'PATCH') {
       const body = await readJsonBody(req);
       const appointmentId = decodeURIComponent(appointmentStatusMatch[1]);
-      jsonResponse(res, 200, phase2.updateAppointmentStatus(scope, appointmentId, body?.status ?? body), requestOrigin);
+      const result = phase2.updateAppointmentStatus(scope, appointmentId, body?.status ?? body);
+      syncReminderAfterAppointment(scope, result.appointment);
+      jsonResponse(res, 200, result, requestOrigin);
       return;
     }
 
@@ -443,14 +480,18 @@ const server = http.createServer(async (req, res) => {
     if (appointmentRescheduleMatch && (method === 'PATCH' || method === 'POST')) {
       const body = await readJsonBody(req);
       const appointmentId = decodeURIComponent(appointmentRescheduleMatch[1]);
-      jsonResponse(res, 200, phase2.rescheduleAppointment(scope, appointmentId, unwrapPayload(body, 'appointment')), requestOrigin);
+      const result = phase2.rescheduleAppointment(scope, appointmentId, unwrapPayload(body, 'appointment'));
+      syncReminderAfterAppointment(scope, result.appointment);
+      jsonResponse(res, 200, result, requestOrigin);
       return;
     }
 
     const appointmentCancelMatch = pathname.match(/^\/api\/appointments\/([^/]+)\/cancel$/);
     if (appointmentCancelMatch && method === 'POST') {
       const appointmentId = decodeURIComponent(appointmentCancelMatch[1]);
-      jsonResponse(res, 200, phase2.deleteAppointment(scope, appointmentId), requestOrigin);
+      const result = phase2.deleteAppointment(scope, appointmentId);
+      syncReminderAfterAppointment(scope, result.appointment);
+      jsonResponse(res, 200, result, requestOrigin);
       return;
     }
 
@@ -647,4 +688,12 @@ function makeHttpError(statusCode, code, message) {
   error.statusCode = statusCode;
   error.code = code;
   return error;
+}
+
+function syncReminderAfterAppointment(scope, appointment) {
+  if (!appointment) {
+    return;
+  }
+
+  phase7.syncAppointmentReminder(scope, appointment);
 }

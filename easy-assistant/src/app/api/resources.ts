@@ -35,6 +35,48 @@ export interface ConversationThreadDetail {
   messages: Message[];
 }
 
+export interface DashboardSummaryMetric {
+  key: string;
+  label: string;
+  value: number | null;
+  format: 'number' | 'percent' | 'currency' | 'duration' | 'text';
+  delta?: number | null;
+  deltaLabel?: string | null;
+  trend?: 'up' | 'down' | 'flat' | null;
+  currency?: string | null;
+}
+
+export interface DashboardTrendPoint {
+  label: string;
+  bookings: number | null;
+  completed: number | null;
+  cancelled: number | null;
+}
+
+export interface DashboardChannelPoint {
+  name: string;
+  value: number;
+  color: string | null;
+}
+
+export interface DashboardAppointmentSummary {
+  id: string;
+  customerName: string | null;
+  serviceName: string | null;
+  staffName: string | null;
+  channelName: string | null;
+  status: Appointment['status'] | string;
+  startTime: string | null;
+}
+
+export interface DashboardSummary {
+  generatedAt: string | null;
+  metrics: DashboardSummaryMetric[];
+  bookingTrend: DashboardTrendPoint[];
+  channelDistribution: DashboardChannelPoint[];
+  recentAppointments: DashboardAppointmentSummary[];
+}
+
 export interface SendConversationMessageInput {
   body: string;
   sender?: Message['sender'];
@@ -136,6 +178,247 @@ function readOptionalNumber(candidate: Record<string, unknown>, keys: string[]) 
   }
 
   return null;
+}
+
+function readOptionalFiniteNumber(candidate: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = candidate[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+function readOptionalTrend(candidate: Record<string, unknown>, keys: string[]) {
+  const trend = readOptionalText(candidate, keys);
+  if (trend === 'up' || trend === 'down' || trend === 'flat') {
+    return trend;
+  }
+
+  return null;
+}
+
+function normalizeDashboardMetric(item: unknown): DashboardSummaryMetric | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  const label = readOptionalText(candidate, ['label', 'name', 'title']);
+  if (!label) {
+    return null;
+  }
+
+  const key = readOptionalText(candidate, ['key', 'id', 'slug']) ?? label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  const format = readOptionalText(candidate, ['format', 'type']);
+
+  return {
+    key,
+    label,
+    value: readOptionalFiniteNumber(candidate, ['value', 'amount', 'count', 'total', 'current', 'currentValue']),
+    format:
+      format === 'percent' || format === 'currency' || format === 'duration' || format === 'text'
+        ? format
+        : 'number',
+    delta: readOptionalFiniteNumber(candidate, ['delta', 'change', 'difference']),
+    deltaLabel: readOptionalText(candidate, ['deltaLabel', 'changeLabel', 'trendLabel', 'subtitle']),
+    trend: readOptionalTrend(candidate, ['trend', 'direction']),
+    currency: readOptionalText(candidate, ['currency']),
+  };
+}
+
+function normalizeDashboardMetrics(source: unknown): DashboardSummaryMetric[] {
+  if (Array.isArray(source)) {
+    return source.map(normalizeDashboardMetric).filter((item): item is DashboardSummaryMetric => item !== null);
+  }
+
+  if (!source || typeof source !== 'object') {
+    return [];
+  }
+
+  const candidate = source as Record<string, unknown>;
+  const metricsArray = readCollection<unknown>(candidate, ['metrics', 'kpis', 'stats']);
+  if (metricsArray.length > 0) {
+    return metricsArray.map(normalizeDashboardMetric).filter((item): item is DashboardSummaryMetric => item !== null);
+  }
+
+  const definitions: Array<{ key: string; label: string; format: DashboardSummaryMetric['format']; keys: string[] }> = [
+    { key: 'totalBookings', label: 'Total Bookings', format: 'number', keys: ['totalBookings', 'bookingsTotal', 'totalAppointments', 'appointmentsTotal'] },
+    { key: 'todayBookings', label: "Today's Schedule", format: 'number', keys: ['todayBookings', 'appointmentsToday', 'todayAppointments', 'scheduleToday'] },
+    { key: 'newMessages', label: 'New Messages', format: 'number', keys: ['newMessages', 'unreadMessages', 'unreadConversations', 'newConversations'] },
+    { key: 'pendingReminders', label: 'Pending Reminders', format: 'number', keys: ['pendingReminders', 'remindersPending', 'scheduledReminders'] },
+    { key: 'conversionRate', label: 'Conversion Rate', format: 'percent', keys: ['conversionRate', 'bookingConversionRate'] },
+    { key: 'avgResponseTime', label: 'Avg. Response Time', format: 'duration', keys: ['avgResponseTime', 'avgResponseTimeMinutes', 'averageResponseTimeMinutes'] },
+    { key: 'revenue', label: 'Revenue', format: 'currency', keys: ['revenue', 'totalRevenue', 'grossRevenue'] },
+  ];
+
+  return definitions
+    .map((definition) => {
+      const value = readOptionalFiniteNumber(candidate, definition.keys);
+      if (value === null) {
+        return null;
+      }
+
+      const metric: DashboardSummaryMetric = {
+        key: definition.key,
+        label: definition.label,
+        value: value as number | null,
+        format: definition.format,
+        delta: readOptionalFiniteNumber(candidate, [`${definition.key}Delta`, `${definition.key}Change`, `${definition.key}Difference`]),
+        deltaLabel: readOptionalText(candidate, [`${definition.key}DeltaLabel`, `${definition.key}ChangeLabel`]),
+        trend: readOptionalTrend(candidate, [`${definition.key}Trend`, `${definition.key}Direction`]),
+        currency: readOptionalText(candidate, ['currency']),
+      };
+
+      return metric;
+    })
+    .filter((item): item is DashboardSummaryMetric => item !== null);
+}
+
+function normalizeDashboardTrendPoint(item: unknown): DashboardTrendPoint | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  const label = readOptionalText(candidate, ['label', 'name', 'day', 'date', 'weekDay']);
+  if (!label) {
+    return null;
+  }
+
+  return {
+    label,
+    bookings: readOptionalFiniteNumber(candidate, ['bookings', 'value', 'count', 'total']),
+    completed: readOptionalFiniteNumber(candidate, ['completed', 'completedBookings', 'success', 'done']),
+    cancelled: readOptionalFiniteNumber(candidate, ['cancelled', 'canceled', 'cancelledBookings', 'failed']),
+  };
+}
+
+function normalizeDashboardChannelPoint(item: unknown): DashboardChannelPoint | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  const name = readOptionalText(candidate, ['name', 'label', 'channel', 'channelName']);
+  if (!name) {
+    return null;
+  }
+
+  const value = readOptionalFiniteNumber(candidate, ['value', 'count', 'total', 'bookings']);
+  if (value === null) {
+    return null;
+  }
+
+  return {
+    name,
+    value,
+    color: readOptionalText(candidate, ['color', 'fill']),
+  };
+}
+
+function normalizeDashboardAppointment(item: unknown): DashboardAppointmentSummary | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  const appointment = readEntity<Appointment>(candidate, ['appointment']) ?? ('id' in candidate ? (candidate as unknown as Appointment) : null);
+
+  if (!appointment) {
+    return null;
+  }
+
+  const customer = readEntity<Customer>(candidate, ['customer']);
+  const service = readEntity<Service>(candidate, ['service']);
+  const staff = readEntity<Staff>(candidate, ['staff']);
+  const channel = readEntity<Channel>(candidate, ['channel']);
+
+  return {
+    id: appointment.id,
+    customerName:
+      readOptionalText(candidate, ['customerName', 'customer_name']) ?? customer?.name ?? null,
+    serviceName:
+      readOptionalText(candidate, ['serviceName', 'service_name']) ?? service?.name ?? null,
+    staffName:
+      readOptionalText(candidate, ['staffName', 'staff_name']) ?? staff?.name ?? null,
+    channelName:
+      readOptionalText(candidate, ['channelName', 'channel_name']) ?? channel?.name ?? null,
+    status: readOptionalText(candidate, ['status']) ?? appointment.status,
+    startTime:
+      readOptionalText(candidate, ['startTime', 'scheduledFor', 'time']) ?? appointment.startTime ?? null,
+  };
+}
+
+function normalizeDashboardAppointments(source: unknown) {
+  if (!source) {
+    return [];
+  }
+
+  const items = readCollection<unknown>(source, ['recentAppointments', 'appointments', 'items', 'data', 'results', 'recentRecords']);
+  return items
+    .map(normalizeDashboardAppointment)
+    .filter((item): item is DashboardAppointmentSummary => item !== null);
+}
+
+function normalizeDashboardSummary(response: unknown): DashboardSummary | null {
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+
+  const candidate = readEntity<Record<string, unknown>>(response, ['summary', 'dashboard', 'data']) ?? (response as Record<string, unknown>);
+  const bookingTrendSource =
+    candidate.bookingTrend
+    ?? candidate.bookingsTrend
+    ?? candidate.bookingsByDay
+    ?? candidate.bookingsOverTime
+    ?? candidate.dailyBookings
+    ?? candidate.trend
+    ?? candidate.bookings;
+  const channelDistributionSource =
+    candidate.channelDistribution
+    ?? candidate.channelBreakdown
+    ?? candidate.channelMix
+    ?? candidate.channels;
+  const appointmentsSource =
+    candidate.recentAppointments
+    ?? candidate.recentBookings
+    ?? candidate.recentRecords
+    ?? candidate.latestAppointments
+    ?? candidate.appointments
+    ?? candidate.records;
+
+  const bookingTrend = readCollection<unknown>(bookingTrendSource, ['items', 'data', 'results'])
+    .map(normalizeDashboardTrendPoint)
+    .filter((item): item is DashboardTrendPoint => item !== null);
+  const channelDistribution = readCollection<unknown>(channelDistributionSource, ['items', 'data', 'results'])
+    .map(normalizeDashboardChannelPoint)
+    .filter((item): item is DashboardChannelPoint => item !== null);
+
+  return {
+    generatedAt:
+      readOptionalText(candidate, ['generatedAt', 'updatedAt', 'asOf', 'timestamp']) ?? null,
+    metrics: normalizeDashboardMetrics(candidate.metrics ?? candidate.kpis ?? candidate.stats ?? candidate),
+    bookingTrend,
+    channelDistribution,
+    recentAppointments: normalizeDashboardAppointments(appointmentsSource),
+  };
+}
+
+export async function fetchDashboardSummary(scope: TenantScope) {
+  const response = await apiRequest<unknown>(withQuery('/api/dashboard/summary', buildTenantSearchParams(scope)), {
+    method: 'GET',
+  });
+  return normalizeDashboardSummary(response);
 }
 
 async function requestCollection<T>(

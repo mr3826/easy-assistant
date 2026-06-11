@@ -1,258 +1,435 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Calendar, MessageSquare, DollarSign, CheckCircle, Clock, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Button } from '../ui/button';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Bell,
+  Calendar,
+  Clock,
+  DollarSign,
+  MessageSquare,
+  RefreshCw,
+  TrendingUp,
+} from 'lucide-react';
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { useAuth } from '../../context/AuthContext';
+import { fetchDashboardSummary, type DashboardSummaryMetric, type TenantScope } from '../../api';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { LoadingFallback } from '../guards';
 
-const bookingsData = [
-  { name: 'Mon', bookings: 12 },
-  { name: 'Tue', bookings: 19 },
-  { name: 'Wed', bookings: 15 },
-  { name: 'Thu', bookings: 22 },
-  { name: 'Fri', bookings: 28 },
-  { name: 'Sat', bookings: 25 },
-  { name: 'Sun', bookings: 18 },
-];
+function formatDateTime(value: string | null | undefined) {
+  if (!value) {
+    return 'Unknown';
+  }
 
-const channelData = [
-  { name: 'WhatsApp', value: 400, color: '#25D366' },
-  { name: 'Facebook', value: 300, color: '#1877F2' },
-  { name: 'Web Widget', value: 200, color: '#2563eb' },
-  { name: 'Telegram', value: 100, color: '#0088cc' },
-];
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
 
-const recentBookings = [
-  { id: 1, customer: 'Sarah Johnson', service: 'Haircut & Style', time: '10:00 AM', status: 'confirmed', staff: 'Emily Chen' },
-  { id: 2, customer: 'Mike Peters', service: 'Consultation', time: '11:30 AM', status: 'pending', staff: 'Dr. Smith' },
-  { id: 3, customer: 'Anna Williams', service: 'Spa Treatment', time: '2:00 PM', status: 'confirmed', staff: 'Lisa Brown' },
-  { id: 4, customer: 'John Davis', service: 'Massage Therapy', time: '3:30 PM', status: 'confirmed', staff: 'Mark Wilson' },
-  { id: 5, customer: 'Emma Thompson', service: 'Facial', time: '4:00 PM', status: 'cancelled', staff: 'Sarah Lee' },
-];
+  return parsed.toLocaleString([], {
+    month: 'short',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatMetricValue(metric: DashboardSummaryMetric) {
+  if (metric.value === null) {
+    return '—';
+  }
+
+  switch (metric.format) {
+    case 'percent':
+      return `${metric.value.toFixed(metric.value % 1 === 0 ? 0 : 1)}%`;
+    case 'currency':
+      return metric.currency
+        ? new Intl.NumberFormat(undefined, { style: 'currency', currency: metric.currency }).format(metric.value)
+        : new Intl.NumberFormat().format(metric.value);
+    case 'duration':
+      return `${metric.value.toFixed(metric.value % 1 === 0 ? 0 : 1)} min`;
+    case 'text':
+      return String(metric.value);
+    default:
+      return new Intl.NumberFormat().format(metric.value);
+  }
+}
+
+function formatMetricDelta(metric: DashboardSummaryMetric) {
+  if (metric.delta === null || metric.delta === undefined) {
+    return null;
+  }
+
+  const absolute = Math.abs(metric.delta);
+  const formatted =
+    metric.format === 'percent'
+      ? `${absolute.toFixed(absolute % 1 === 0 ? 0 : 1)}%`
+      : new Intl.NumberFormat().format(absolute);
+
+  if (metric.delta === 0) {
+    return `0${metric.format === 'percent' ? '%' : ''}`;
+  }
+
+  return `${metric.delta > 0 ? '+' : '-'}${formatted}`;
+}
+
+function metricTone(metric: DashboardSummaryMetric) {
+  if (metric.trend === 'down') {
+    return 'text-green-600';
+  }
+
+  if (metric.trend === 'flat') {
+    return 'text-gray-500';
+  }
+
+  return metric.trend === 'up' ? 'text-blue-600' : 'text-gray-500';
+}
+
+function metricIcon(metric: DashboardSummaryMetric) {
+  const key = `${metric.key} ${metric.label}`.toLowerCase();
+
+  if (key.includes('message') || key.includes('conversation')) {
+    return MessageSquare;
+  }
+
+  if (key.includes('revenue') || key.includes('recharge') || key.includes('payment')) {
+    return DollarSign;
+  }
+
+  if (key.includes('reminder') || key.includes('alert') || key.includes('notification')) {
+    return Bell;
+  }
+
+  if (key.includes('time') || key.includes('response') || key.includes('duration')) {
+    return Clock;
+  }
+
+  if (key.includes('rate') || key.includes('conversion') || key.includes('trend')) {
+    return TrendingUp;
+  }
+
+  return Calendar;
+}
+
+function appointmentStatusTone(status: string) {
+  switch (status) {
+    case 'confirmed':
+      return 'bg-green-100 text-green-700 hover:bg-green-100';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100';
+    case 'completed':
+      return 'bg-blue-100 text-blue-700 hover:bg-blue-100';
+    case 'cancelled':
+    case 'canceled':
+    case 'no_show':
+      return 'bg-red-100 text-red-700 hover:bg-red-100';
+    case 'rescheduled':
+      return 'bg-slate-100 text-slate-700 hover:bg-slate-100';
+    default:
+      return 'bg-gray-100 text-gray-700 hover:bg-gray-100';
+  }
+}
 
 export default function DashboardHome() {
-  const [actionStatus, setActionStatus] = useState('');
+  const { session, isLoading: authLoading } = useAuth();
+  const scope = useMemo<TenantScope | null>(() => {
+    if (!session?.organization?.id || !session?.location?.id) {
+      return null;
+    }
+
+    return {
+      organizationId: session.organization.id,
+      locationId: session.location.id,
+    };
+  }, [session]);
+
+  const [summary, setSummary] = useState<Awaited<ReturnType<typeof fetchDashboardSummary>> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadSummary = async (nextScope: TenantScope | null = scope, showSpinner = false) => {
+    if (!nextScope) {
+      setSummary(null);
+      setError('');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    if (showSpinner || !summary) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
+    setError('');
+
+    try {
+      const nextSummary = await fetchDashboardSummary(nextScope);
+      setSummary(nextSummary);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load the dashboard summary.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      if (!active) {
+        return;
+      }
+
+      await loadSummary(scope, true);
+    };
+
+    void run();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
+
+  if (authLoading) {
+    return <LoadingFallback message="Loading dashboard..." />;
+  }
+
+  if (!scope) {
+    return (
+      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+        <p className="text-sm text-gray-600">Sign in to view the live dashboard summary for this location.</p>
+      </div>
+    );
+  }
+
+  if (loading && !summary) {
+    return <LoadingFallback message="Loading dashboard summary..." />;
+  }
+
+  const metrics = summary?.metrics ?? [];
+  const trendData = summary?.bookingTrend ?? [];
+  const channelData = summary?.channelDistribution ?? [];
+  const recentAppointments = summary?.recentAppointments ?? [];
+  const hasTrendData = trendData.length > 0;
+  const hasChannelData = channelData.length > 0;
+  const hasAppointments = recentAppointments.length > 0;
 
   return (
     <div className="space-y-6">
-        {/* Page Header */}
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
           <h1>Dashboard</h1>
-          <p className="text-gray-500">Welcome back! Here&apos;s what&apos;s happening today.</p>
-        </div>
-        {actionStatus && (
-          <p className="text-sm text-green-700" role="status" aria-live="polite">
-            {actionStatus}
-          </p>
-        )}
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">Total Bookings</CardTitle>
-              <Calendar className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">1,284</div>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <TrendingUp className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">+12.5%</span> from last month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">Today&apos;s Schedule</CardTitle>
-              <Clock className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">24</div>
-              <p className="text-xs text-gray-500 mt-1">
-                18 confirmed, 6 pending
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">New Messages</CardTitle>
-              <MessageSquare className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">48</div>
-              <p className="text-xs text-gray-500 mt-1">
-                12 unread conversations
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">Revenue</CardTitle>
-              <DollarSign className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">$12,450</div>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <TrendingUp className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">+8.2%</span> from last month
-              </p>
-            </CardContent>
-          </Card>
+          <p className="text-gray-500">Live summary from persisted bookings, conversations, and reminders.</p>
+          {summary?.generatedAt && (
+            <p className="text-xs text-gray-400">Last updated {formatDateTime(summary.generatedAt)}</p>
+          )}
         </div>
 
-        {/* Secondary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">Pending Approvals</CardTitle>
-              <CheckCircle className="h-5 w-5 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <Button
-                variant="link"
-                className="h-auto p-0 mt-1"
-                onClick={() => setActionStatus('Pending approvals opened in demo mode.')}
-              >
-                Review now →
-              </Button>
-            </CardContent>
-          </Card>
+        <Button variant="outline" size="sm" onClick={() => void loadSummary(scope, true)} disabled={loading || refreshing}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">Conversion Rate</CardTitle>
-              <TrendingUp className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">68.4%</div>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <ArrowUpRight className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">+3.2%</span> improvement
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm text-gray-600">Avg. Response Time</CardTitle>
-              <Clock className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">2.4 min</div>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <ArrowDownRight className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">-0.8 min</span> faster
-              </p>
-            </CardContent>
-          </Card>
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span role="alert">{error}</span>
+          <Button variant="outline" size="sm" onClick={() => void loadSummary(scope, true)} disabled={loading || refreshing}>
+            Retry
+          </Button>
         </div>
+      )}
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Bookings Overview</CardTitle>
-              <CardDescription>Daily bookings for the past week</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={bookingsData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="bookings" stroke="#2563eb" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+      {!error && refreshing && (
+        <p className="text-sm text-gray-500" role="status" aria-live="polite">
+          Refreshing dashboard data...
+        </p>
+      )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Channel Distribution</CardTitle>
-              <CardDescription>Bookings by channel</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={channelData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {channelData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Bookings Table */}
+      {metrics.length === 0 ? (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Latest Bookings</CardTitle>
-              <CardDescription>Recent appointment requests</CardDescription>
-            </div>
-            <Button variant="outline" onClick={() => setActionStatus('All bookings opened in demo mode.')}>
-              View All
-            </Button>
+          <CardContent className="px-6 py-10 text-sm text-gray-500">
+            No dashboard metrics are available for this location yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => {
+            const Icon = metricIcon(metric);
+            const delta = formatMetricDelta(metric);
+
+            return (
+              <Card key={metric.key}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm text-gray-600">{metric.label}</CardTitle>
+                  <Icon className="h-5 w-5 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatMetricValue(metric)}</div>
+                  {delta ? (
+                    <p className={`mt-1 flex items-center gap-1 text-xs ${metricTone(metric)}`}>
+                      {metric.trend === 'down' ? (
+                        <ArrowDownRight className="h-3 w-3" />
+                      ) : (
+                        <ArrowUpRight className="h-3 w-3" />
+                      )}
+                      <span>{delta}</span>
+                      <span className="text-gray-500">{metric.deltaLabel ?? 'from the previous period'}</span>
+                    </p>
+                  ) : metric.deltaLabel ? (
+                    <p className="mt-1 text-xs text-gray-500">{metric.deltaLabel}</p>
+                  ) : null}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Booking Trend</CardTitle>
+            <CardDescription>Live appointment volume from the backend summary.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentBookings.map((booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell>{booking.customer}</TableCell>
-                    <TableCell>{booking.service}</TableCell>
-                    <TableCell>{booking.staff}</TableCell>
-                    <TableCell>{booking.time}</TableCell>
+            {hasTrendData ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="bookings" stroke="#2563eb" strokeWidth={2} name="Bookings" />
+                  {trendData.some((point) => point.completed !== null) && (
+                    <Line type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2} name="Completed" />
+                  )}
+                  {trendData.some((point) => point.cancelled !== null) && (
+                    <Line type="monotone" dataKey="cancelled" stroke="#ef4444" strokeWidth={2} name="Cancelled" />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
+                No booking trend data returned by the summary endpoint.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Channel Distribution</CardTitle>
+            <CardDescription>Bookings grouped by inbound channel.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {hasChannelData ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={channelData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {channelData.map((entry, index) => (
+                        <Cell key={`${entry.name}-${index}`} fill={entry.color ?? '#2563eb'} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-3">
+                  {channelData.map((channel) => (
+                    <div key={channel.name} className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: channel.color ?? '#2563eb' }} />
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600">{channel.name}</p>
+                        <p className="font-medium">{new Intl.NumberFormat().format(channel.value)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
+                No channel distribution data returned by the summary endpoint.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Recent Appointments</CardTitle>
+            <CardDescription>Latest booked records returned by the dashboard summary.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Service</TableHead>
+                <TableHead>Staff</TableHead>
+                <TableHead>Channel</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {hasAppointments ? (
+                recentAppointments.map((appointment) => (
+                  <TableRow key={appointment.id}>
+                    <TableCell>{appointment.customerName ?? 'Unknown customer'}</TableCell>
+                    <TableCell>{appointment.serviceName ?? 'Unknown service'}</TableCell>
+                    <TableCell>{appointment.staffName ?? 'Unassigned'}</TableCell>
+                    <TableCell>{appointment.channelName ?? 'Unlinked channel'}</TableCell>
+                    <TableCell>{formatDateTime(appointment.startTime)}</TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={
-                          booking.status === 'confirmed' ? 'default' : 
-                          booking.status === 'pending' ? 'secondary' : 
-                          'destructive'
-                        }
-                        className={
-                          booking.status === 'confirmed' ? 'bg-green-100 text-green-700 hover:bg-green-100' :
-                          booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100' :
-                          ''
-                        }
-                      >
-                        {booking.status}
+                      <Badge variant="secondary" className={appointmentStatusTone(String(appointment.status))}>
+                        {String(appointment.status).replace(/_/g, ' ')}
                       </Badge>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        </div>
-    );
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-gray-500">
+                    No recent appointments were returned by the summary endpoint.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

@@ -213,6 +213,34 @@ CREATE TABLE IF NOT EXISTS appointments (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS reminders (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  appointment_id TEXT NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+  channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE RESTRICT,
+  scheduled_for INTEGER NOT NULL,
+  sent_at INTEGER,
+  status TEXT NOT NULL CHECK (status IN ('scheduled', 'sent', 'failed', 'cancelled')),
+  template_body TEXT NOT NULL,
+  failure_reason TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE (appointment_id)
+);
+
+CREATE TABLE IF NOT EXISTS reminder_deliveries (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  reminder_id TEXT NOT NULL REFERENCES reminders(id) ON DELETE CASCADE,
+  channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE RESTRICT,
+  provider_message_id TEXT,
+  status TEXT NOT NULL CHECK (status IN ('scheduled', 'sent', 'failed', 'cancelled')),
+  attempted_at INTEGER NOT NULL,
+  response_metadata TEXT NOT NULL DEFAULT '{}'
+);
+
 CREATE TABLE IF NOT EXISTS memberships (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -256,4 +284,8 @@ CREATE INDEX IF NOT EXISTS idx_ai_settings_scope ON ai_settings(organization_id,
 CREATE INDEX IF NOT EXISTS idx_audit_logs_scope ON audit_logs(organization_id, location_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(organization_id, entity_type, entity_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_appointments_scope ON appointments(organization_id, location_id, start_time, status);
+CREATE INDEX IF NOT EXISTS idx_reminders_scope ON reminders(organization_id, location_id, status, scheduled_for, created_at);
+CREATE INDEX IF NOT EXISTS idx_reminders_appointment_id ON reminders(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_reminder_deliveries_scope ON reminder_deliveries(organization_id, location_id, reminder_id, attempted_at);
+CREATE INDEX IF NOT EXISTS idx_reminder_deliveries_reminder_id ON reminder_deliveries(reminder_id, attempted_at);
 `;

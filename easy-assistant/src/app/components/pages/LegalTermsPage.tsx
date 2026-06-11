@@ -11,25 +11,37 @@ export default function LegalTermsPage() {
         <div className="mt-6 space-y-5 text-gray-700">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Terms of Service</h1>
-            <p className="mt-2 text-sm text-gray-500">Placeholder terms for the MVP pilot.</p>
+            <p className="mt-2 text-sm text-gray-500">MVP terms for the Easy Assistant pilot.</p>
           </div>
 
           <p>
             Easy Assistant is an AI receptionist workflow for local service businesses. The MVP
-            experience is intended to validate WhatsApp conversation handling, appointment
-            booking, reminders, and business setup flows.
+            is designed to validate WhatsApp conversation handling, appointment booking,
+            reminders, dashboard visibility, and business setup flows.
           </p>
 
           <p>
-            Users are responsible for the accuracy of their business, staff, service,
-            availability, and customer information. AI-generated responses should be reviewed
-            and configured before live use with customers.
+            You are responsible for the accuracy of your business, staff, service, availability,
+            and customer information, and for keeping your account credentials secure. You are
+            also responsible for any activity that happens under your account.
           </p>
 
           <p>
-            These placeholder terms will be replaced with a full agreement covering account
-            responsibilities, acceptable use, AI limitations, payment terms, privacy references,
-            support obligations, suspension, termination, and liability before public launch.
+            Customer data and conversation history should be handled as confidential. Only share
+            access with people who are authorized to work in the account and who need the data to
+            provide the service.
+          </p>
+
+          <p>
+            AI suggestions are support tools, not a guarantee of correctness. Review generated
+            messages before sending them to customers, and do not rely on them as the sole source
+            of truth for scheduling or customer communication.
+          </p>
+
+          <p>
+            We may suspend or change the service if security, abuse, legal, or operational issues
+            require it. Support during the MVP is best effort and may be limited to the in-app
+            support path or the workspace owner.
           </p>
 
           <div className="border-t border-gray-200 pt-5 text-sm">

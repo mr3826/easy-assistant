@@ -253,6 +253,41 @@ export function serializeAppointment(row) {
     : null;
 }
 
+export function serializeReminder(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        appointmentId: row.appointment_id,
+        channelId: row.channel_id,
+        scheduledFor: toIso(row.scheduled_for),
+        sentAt: toIso(row.sent_at),
+        status: row.status,
+        templateBody: row.template_body,
+        failureReason: row.failure_reason,
+        createdAt: toIso(row.created_at),
+        updatedAt: toIso(row.updated_at),
+      }
+    : null;
+}
+
+export function serializeReminderDelivery(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        reminderId: row.reminder_id,
+        channelId: row.channel_id,
+        providerMessageId: row.provider_message_id,
+        status: row.status,
+        attemptedAt: toIso(row.attempted_at),
+        responseMetadata: parseJsonValue(row.response_metadata, {}),
+      }
+    : null;
+}
+
 export function serializeOrganization(row) {
   return row
     ? {

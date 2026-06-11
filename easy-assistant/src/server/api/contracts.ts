@@ -127,6 +127,50 @@ export interface AiReceptionistRunResponse {
   auditLog: AuditLog;
 }
 
+export interface DashboardAppointmentByDay {
+  date: ISODateString;
+  total: number;
+  confirmed: number;
+  pending: number;
+  cancelled: number;
+  completed: number;
+  rescheduled: number;
+  noShow: number;
+}
+
+export interface DashboardChannelBreakdown {
+  channelId: EntityId | null;
+  channelName: string;
+  channelType: Channel["type"] | null;
+  appointments: number;
+  conversations: number;
+  reminders: number;
+}
+
+export interface DashboardRecentAppointment extends Appointment {
+  customerName: string | null;
+  serviceName: string | null;
+  staffName: string | null;
+  channelName: string | null;
+}
+
+export interface DashboardSummaryResponse {
+  metrics: {
+    appointmentsTotal: number;
+    appointmentsConfirmed: number;
+    appointmentsUpcoming: number;
+    conversationsTotal: number;
+    conversationsActive: number;
+    remindersTotal: number;
+    remindersScheduled: number;
+    remindersCancelled: number;
+    reminderDeliveriesTotal: number;
+  };
+  appointmentsByDay: DashboardAppointmentByDay[];
+  channelBreakdown: DashboardChannelBreakdown[];
+  recentAppointments: DashboardRecentAppointment[];
+}
+
 export const API_ROUTES = {
   signup: {
     method: "POST",
@@ -373,9 +417,19 @@ export const API_ROUTES = {
     path: "/api/ai/receptionist/run",
     authRequired: true,
   },
+  dashboardSummary: {
+    method: "GET",
+    path: "/api/dashboard/summary",
+    authRequired: true,
+  },
   reminders: {
     method: "GET",
     path: "/api/reminders",
+    authRequired: true,
+  },
+  reminderDetail: {
+    method: "GET",
+    path: "/api/reminders/:reminderId",
     authRequired: true,
   },
   reminderDeliveries: {
@@ -447,6 +501,8 @@ export interface ApiContractMap {
   aiSettings: ApiRouteContract<TenantScopedRequest, { settings: AiSettings }>;
   updateAiSettings: ApiRouteContract<AiSettingsMutationRequest, { settings: AiSettings }>;
   aiReceptionistRun: ApiRouteContract<AiReceptionistRunRequest, AiReceptionistRunResponse>;
+  dashboardSummary: ApiRouteContract<TenantScopedRequest, DashboardSummaryResponse>;
   reminders: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Reminder>>;
+  reminderDetail: ApiRouteContract<TenantScopedRequest & { reminderId: EntityId }, { reminder: Reminder }>;
   reminderDeliveries: ApiRouteContract<TenantScopedRequest & { reminderId: EntityId }, PaginatedResponse<ReminderDelivery>>;
 }

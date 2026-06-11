@@ -1108,6 +1108,112 @@ export function createRepository(db) {
       });
       return this.findAppointmentById(appointmentId);
     },
+
+    listReminders(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM reminders
+            WHERE organization_id = ? AND location_id = ?
+            ORDER BY created_at DESC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    findReminderById(reminderId) {
+      return one(db, 'reminders', 'id', reminderId);
+    },
+
+    findReminderByAppointmentId(appointmentId) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM reminders
+              WHERE appointment_id = ?
+              ORDER BY created_at DESC
+              LIMIT 1
+            `,
+          )
+          .get(appointmentId) ?? null
+      );
+    },
+
+    createReminder(input) {
+      db.prepare(`
+        INSERT INTO reminders (
+          id, organization_id, location_id, appointment_id, channel_id, scheduled_for, sent_at, status,
+          template_body, failure_reason, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.appointmentId,
+        input.channelId,
+        input.scheduledFor,
+        input.sentAt ?? null,
+        input.status,
+        input.templateBody,
+        input.failureReason ?? null,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findReminderById(input.id);
+    },
+
+    updateReminder(reminderId, updates) {
+      updateRow(db, 'reminders', 'id', reminderId, {
+        channel_id: updates.channelId,
+        scheduled_for: updates.scheduledFor,
+        sent_at: updates.sentAt,
+        status: updates.status,
+        template_body: updates.templateBody,
+        failure_reason: updates.failureReason,
+        updated_at: updates.updatedAt,
+      });
+      return this.findReminderById(reminderId);
+    },
+
+    listReminderDeliveries(scope, reminderId) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM reminder_deliveries
+            WHERE organization_id = ? AND location_id = ? AND reminder_id = ?
+            ORDER BY attempted_at DESC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId, reminderId);
+    },
+
+    findReminderDeliveryById(reminderDeliveryId) {
+      return one(db, 'reminder_deliveries', 'id', reminderDeliveryId);
+    },
+
+    createReminderDelivery(input) {
+      db.prepare(`
+        INSERT INTO reminder_deliveries (
+          id, organization_id, location_id, reminder_id, channel_id, provider_message_id, status,
+          attempted_at, response_metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.reminderId,
+        input.channelId,
+        input.providerMessageId ?? null,
+        input.status,
+        input.attemptedAt,
+        stringifyJsonValue(input.responseMetadata, {}),
+      );
+      return this.findReminderDeliveryById(input.id);
+    },
   };
 }
 
