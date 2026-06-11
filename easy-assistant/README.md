@@ -28,7 +28,7 @@
 | **Availability** | Per-day working hours configuration |
 | **Channels** | WhatsApp, Facebook, Telegram, Web Widget connection status |
 | **Marketing** | Appointment reminder automation with message templates |
-| **AI Settings** | AI assistant tone, language, and training configuration |
+| **AI Settings** | AI assistant name, tone, language, greeting, handoff, auto-confirm, and reminder settings |
 | **Billing** | Current plan, usage metrics, available plans, payment method, invoice history |
 | **Analytics** | KPI cards, booking trends, no-show rate, channel breakdown, AI performance |
 | **Support** | Ticket management, live chat widget, FAQ accordion |
@@ -194,7 +194,7 @@ npm run backend:test
 ```
 
 Runs the focused auth/session and backend contract tests that verify the
-phase-1 foundation, the phase-2 booking-data surface, the phase-4 conversation runtime, and the phase-5 WhatsApp runtime.
+phase-1 foundation, the phase-2 booking-data surface, the phase-4 conversation runtime, the phase-5 WhatsApp runtime, and the phase-6 AI receptionist runtime.
 
 ### Preview Production Build
 

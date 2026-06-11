@@ -11,6 +11,8 @@ The app shell is also more MVP-focused: primary navigation now emphasizes the Wh
 
 Phase 2 is now visible in the repo as a booking-data foundation: service, staff, customer, appointment, and availability contract surfaces are modeled in types/schema lists and are covered by focused backend tests, while the remaining work is still the persistent CRUD and handler wiring.
 
+Phase 6 has now landed in the repo as well: AI settings are persisted on the backend, the receptionist flow can classify messages, validate availability, create real appointments, write AI audit logs, and hand off to a human when needed, with matching contract and runtime coverage.
+
 ## Acceptance Criteria Status
 
 | Brief area | Status | Evidence in repo | Missing to reach MVP | Next phase |
@@ -26,10 +28,10 @@ Phase 2 is now visible in the repo as a booking-data foundation: service, staff,
 | Customers | Partial | Customer type/schema list entries and route contract samples exist | Customer table, phone dedupe, consent fields, export/delete | Phase 2 |
 | Conversations | Implemented | Conversations page now hydrates from the API, conversation/channel state is persisted, and human takeover/manual replies are wired | WhatsApp-native inbound ingestion, webhook persistence, and outbound send flows | Phase 4 complete |
 | WhatsApp integration | Implemented | Channel patch/update now stores encrypted access tokens and hashed verify tokens; webhook verification and inbound ingest persist WhatsApp conversations/messages; outbound replies are queued with consent checks | Provider delivery sync and template hardening | Phase 5 complete |
-| AI receptionist workflow | Missing | AI settings page exists | Intent detection, tool-calling booking flow, AI action logs, guardrails | Phase 6 |
+| AI receptionist workflow | Implemented | AI settings page, persisted settings routes, and receptionist runtime/tests exist | Confidence threshold tuning and richer intent coverage | Phase 6 complete |
 | Reminders | Missing | No queue/reminder domain found | Reminder settings, queue, WhatsApp templates, delivery log | Phase 7 |
 | Dashboard real metrics | Partial | Dashboard UI exists | Metrics from real appointment/conversation data only | Phase 7 |
-| Basic AI settings | Partial | AI Settings page exists | Persisted MVP settings and removal/hiding of non-MVP controls | Phase 6 |
+| Basic AI settings | Implemented | AI Settings page now persists live MVP settings and removes demo-only controls | None for MVP scope | Phase 6 complete |
 | Public booking link | Missing | No public booking route found | Public service list, slot picker, customer form, confirmation | Next phase after core MVP |
 | Privacy/compliance hooks | Partial | `/privacy` and `/terms` placeholder pages exist; customer consent and audit log fields exist in domain/migration | Customer export/delete UI/API, retention settings, localized privacy copy, opt-out handling | Phase 8 |
 | Security acceptance | Partial | Password hashing, HttpOnly cookie sessions, and API auth are in place | Rate limits, webhook verification, deployment secret hygiene, and broader authorization hardening | Phase 1 and Phase 5 |
@@ -48,7 +50,7 @@ Phase 2 is now visible in the repo as a booking-data foundation: service, staff,
 | Service CRUD | Missing | Add tests when persistent service API/domain exists. |
 | Staff CRUD | Missing | Add tests when persistent staff API/domain exists. |
 | WhatsApp webhook handling | Missing | Add tests when webhook routes and signature validation exist. |
-| AI tool-call appointment creation | Missing | Add tests when AI tool orchestration and appointment creation service exist. |
+| AI tool-call appointment creation | Covered at contract/runtime level | `src/test/backend-contracts.test.ts` and `src/test/backend-ai-receptionist.test.ts` verify the AI receptionist booking flow. |
 
 ## Execution Roadmap
 
@@ -180,7 +182,6 @@ Exit checks: setup docs are current, quality commands pass, and deferred modules
 
 ## Immediate Next Tasks
 
-1. Start the AI receptionist tool-calling and booking orchestration phase on top of the live WhatsApp conversation flow.
-2. Add guardrails, action logging, and confidence thresholds before turning on any autonomous booking behavior.
-3. Expand reminders and dashboard metrics using the live appointment and conversation data now in the backend.
-4. Keep the launch-readiness docs current as the MVP moves into AI receptionist and reminder hardening.
+1. Start the reminders and dashboard metrics phase on top of the live appointment and conversation data now in the backend.
+2. Harden reminder delivery, template messaging, and delivery logs before launch.
+3. Keep the launch-readiness docs current as the MVP moves into reminders and dashboard hardening.

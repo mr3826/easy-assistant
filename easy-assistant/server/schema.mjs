@@ -166,6 +166,35 @@ CREATE TABLE IF NOT EXISTS messages (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS ai_settings (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  assistant_name TEXT NOT NULL,
+  tone TEXT NOT NULL CHECK (tone IN ('friendly', 'professional', 'formal')),
+  default_language TEXT NOT NULL,
+  greeting_message TEXT NOT NULL,
+  human_handoff_message TEXT NOT NULL,
+  auto_confirm_bookings INTEGER NOT NULL DEFAULT 1 CHECK (auto_confirm_bookings IN (0, 1)),
+  reminder_enabled INTEGER NOT NULL DEFAULT 0 CHECK (reminder_enabled IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE (organization_id, location_id)
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  location_id TEXT REFERENCES locations(id) ON DELETE SET NULL,
+  actor_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  actor_type TEXT NOT NULL CHECK (actor_type IN ('user', 'ai', 'system')),
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT,
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS appointments (
   id TEXT PRIMARY KEY,
   organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -223,5 +252,8 @@ CREATE INDEX IF NOT EXISTS idx_channels_verify_token_lookup ON channels(verify_t
 CREATE INDEX IF NOT EXISTS idx_conversations_scope ON conversations(organization_id, location_id, state, last_message_at, created_at);
 CREATE INDEX IF NOT EXISTS idx_conversations_channel_external_lookup ON conversations(organization_id, location_id, channel_id, external_conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_scope ON messages(organization_id, location_id, conversation_id, sent_at, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_settings_scope ON ai_settings(organization_id, location_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_scope ON audit_logs(organization_id, location_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(organization_id, entity_type, entity_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_appointments_scope ON appointments(organization_id, location_id, start_time, status);
 `;

@@ -2,6 +2,7 @@ import type {
   AiSettings,
   Appointment,
   AvailabilitySlot,
+  AuditLog,
   BusinessHour,
   Channel,
   Conversation,
@@ -91,6 +92,39 @@ export interface ChannelMutationRequest extends TenantScopedRequest {
   channel: Partial<Pick<Channel, "type" | "name" | "externalAccountId" | "externalPhoneNumberId" | "displayPhoneNumber" | "active" | "metadata">>;
   accessToken?: string | null;
   verifyToken?: string | null;
+}
+
+export interface AiSettingsMutationRequest extends TenantScopedRequest {
+  settings: Partial<AiSettings>;
+}
+
+export interface AiReceptionistToolCall {
+  type: "createAppointment";
+  customerId: EntityId;
+  serviceId: EntityId;
+  staffId: EntityId;
+  channelId?: EntityId;
+  conversationId?: EntityId;
+  startTime: string;
+  endTime: string;
+  notes?: string | null;
+  intent?: string | null;
+}
+
+export interface AiReceptionistRunRequest extends TenantScopedRequest {
+  conversationId: EntityId;
+  message: string;
+  intent?: string;
+  toolCall?: Partial<AiReceptionistToolCall>;
+}
+
+export interface AiReceptionistRunResponse {
+  settings: AiSettings;
+  assistantMessage: string;
+  appointment: Appointment | null;
+  conversation: Conversation;
+  message: Message | null;
+  auditLog: AuditLog;
 }
 
 export const API_ROUTES = {
@@ -334,6 +368,11 @@ export const API_ROUTES = {
     path: "/api/ai-settings",
     authRequired: true,
   },
+  aiReceptionistRun: {
+    method: "POST",
+    path: "/api/ai/receptionist/run",
+    authRequired: true,
+  },
   reminders: {
     method: "GET",
     path: "/api/reminders",
@@ -406,6 +445,8 @@ export interface ApiContractMap {
   whatsappWebhookVerify: ApiRouteContract<Record<string, string>, { challenge: string }>;
   whatsappWebhookReceive: ApiRouteContract<Record<string, unknown>, { ok: true; processed: number }>;
   aiSettings: ApiRouteContract<TenantScopedRequest, { settings: AiSettings }>;
+  updateAiSettings: ApiRouteContract<AiSettingsMutationRequest, { settings: AiSettings }>;
+  aiReceptionistRun: ApiRouteContract<AiReceptionistRunRequest, AiReceptionistRunResponse>;
   reminders: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Reminder>>;
   reminderDeliveries: ApiRouteContract<TenantScopedRequest & { reminderId: EntityId }, PaginatedResponse<ReminderDelivery>>;
 }

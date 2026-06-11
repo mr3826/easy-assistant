@@ -336,6 +336,118 @@ export function createRepository(db) {
       });
     },
 
+    findAiSettingsByScope(scope) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM ai_settings
+              WHERE organization_id = ? AND location_id = ?
+              LIMIT 1
+            `,
+          )
+          .get(scope.organizationId, scope.locationId) ?? null
+      );
+    },
+
+    ensureAiSettings(scope, timestamps, defaults = {}) {
+      const existing = this.findAiSettingsByScope(scope);
+      if (existing) {
+        return existing;
+      }
+
+      return this.createAiSettings({
+        id: generateRowId(),
+        organizationId: scope.organizationId,
+        locationId: scope.locationId,
+        assistantName: defaults.assistantName ?? 'Easy Assistant',
+        tone: defaults.tone ?? 'friendly',
+        defaultLanguage: defaults.defaultLanguage ?? 'en',
+        greetingMessage:
+          defaults.greetingMessage ?? "Hi! I'm your booking assistant. How can I help you today?",
+        humanHandoffMessage:
+          defaults.humanHandoffMessage ?? 'Thanks. A human team member will take it from here.',
+        autoConfirmBookings: defaults.autoConfirmBookings ?? true,
+        reminderEnabled: defaults.reminderEnabled ?? false,
+        createdAt: timestamps.createdAt,
+        updatedAt: timestamps.updatedAt,
+      });
+    },
+
+    createAiSettings(input) {
+      db.prepare(`
+        INSERT INTO ai_settings (
+          id, organization_id, location_id, assistant_name, tone, default_language, greeting_message,
+          human_handoff_message, auto_confirm_bookings, reminder_enabled, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.assistantName,
+        input.tone,
+        input.defaultLanguage,
+        input.greetingMessage,
+        input.humanHandoffMessage,
+        input.autoConfirmBookings === false ? 0 : 1,
+        input.reminderEnabled === true ? 1 : 0,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findAiSettingsByScope({
+        organizationId: input.organizationId,
+        locationId: input.locationId,
+      });
+    },
+
+    updateAiSettings(aiSettingsId, updates) {
+      updateRow(db, 'ai_settings', 'id', aiSettingsId, {
+        assistant_name: updates.assistantName,
+        tone: updates.tone,
+        default_language: updates.defaultLanguage,
+        greeting_message: updates.greetingMessage,
+        human_handoff_message: updates.humanHandoffMessage,
+        auto_confirm_bookings: updates.autoConfirmBookings === undefined ? undefined : booleanToInt(updates.autoConfirmBookings),
+        reminder_enabled: updates.reminderEnabled === undefined ? undefined : booleanToInt(updates.reminderEnabled),
+        updated_at: updates.updatedAt,
+      });
+      return one(db, 'ai_settings', 'id', aiSettingsId);
+    },
+
+    createAuditLog(input) {
+      db.prepare(`
+        INSERT INTO audit_logs (
+          id, organization_id, location_id, actor_user_id, actor_type, action, entity_type, entity_id, metadata, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId ?? null,
+        input.actorUserId ?? null,
+        input.actorType,
+        input.action,
+        input.entityType,
+        input.entityId ?? null,
+        stringifyJsonValue(input.metadata, {}),
+        input.createdAt,
+      );
+      return one(db, 'audit_logs', 'id', input.id);
+    },
+
+    listAuditLogs(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM audit_logs
+            WHERE organization_id = ? AND (location_id = ? OR location_id IS NULL)
+            ORDER BY created_at DESC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
     listServices(scope) {
       return db
         .prepare(

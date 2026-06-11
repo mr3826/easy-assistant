@@ -6,6 +6,7 @@ import { createAuthService } from './auth-service.mjs';
 import { createPhase2Service } from './phase2.mjs';
 import { createPhase4Service } from './phase4.mjs';
 import { createPhase5Service } from './phase5.mjs';
+import { createPhase6Service } from './phase6.mjs';
 import {
   buildSessionCookie,
   clearSessionCookie,
@@ -22,6 +23,7 @@ const auth = createAuthService(repository, db);
 const phase2 = createPhase2Service(repository);
 const phase4 = createPhase4Service(repository);
 const phase5 = createPhase5Service(repository, { credentialSecret: config.whatsappCredentialSecret });
+const phase6 = createPhase6Service(repository, { phase2, phase4 });
 
 const server = http.createServer(async (req, res) => {
   const requestOrigin = req.headers.origin;
@@ -168,6 +170,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/api/ai-settings' && method === 'GET') {
+      jsonResponse(res, 200, phase6.getAiSettings(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/ai-settings' && method === 'PATCH') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 200, phase6.updateAiSettings(scope, body), requestOrigin);
+      return;
+    }
+
     const channelMatch = pathname.match(/^\/api\/channels\/([^/]+)$/);
     if (channelMatch) {
       const channelId = decodeURIComponent(channelMatch[1]);
@@ -180,6 +193,12 @@ const server = http.createServer(async (req, res) => {
         jsonResponse(res, 200, phase5.updateChannel(scope, channelId, body), requestOrigin);
         return;
       }
+    }
+
+    if (pathname === '/api/ai/receptionist/run' && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 200, phase6.runReceptionist(scope, body, { actorUserId: session.user.id }), requestOrigin);
+      return;
     }
 
     if (pathname === '/api/conversations' && method === 'GET') {

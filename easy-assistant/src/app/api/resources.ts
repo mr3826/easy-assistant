@@ -1,5 +1,7 @@
 import type {
   Appointment,
+  AiSettings,
+  AuditLog,
   Channel,
   BusinessHour,
   Conversation,
@@ -150,7 +152,24 @@ async function requestCollection<T>(
 
 async function requestEntity<T>(path: string, options: { method: 'POST' | 'PATCH' | 'DELETE'; body?: unknown }) {
   const response = await apiRequest<unknown>(path, options);
-  return readEntity<T>(response, ['service', 'staff', 'appointment', 'customer', 'hours', 'businessHours', 'staffHours']);
+  return readEntity<T>(response, [
+    'settings',
+    'channel',
+    'conversation',
+    'message',
+    'auditLog',
+    'service',
+    'staff',
+    'appointment',
+    'customer',
+    'hours',
+    'businessHours',
+    'staffHours',
+  ]);
+}
+
+function readSettings<T>(response: unknown) {
+  return readEntity<T>(response, ['settings']);
 }
 
 function normalizeConversationSummary(item: unknown): ConversationThreadSummary | null {
@@ -447,4 +466,61 @@ export async function closeConversation(scope: TenantScope, conversationId: stri
 
 export async function fetchChannels(scope: TenantScope) {
   return requestCollection<Channel>('/api/channels', scope, {}, ['items', 'channels', 'data']);
+}
+
+export async function fetchAiSettings(scope: TenantScope) {
+  const response = await apiRequest<unknown>(withQuery('/api/ai-settings', buildTenantSearchParams(scope)), {
+    method: 'GET',
+  });
+  return readSettings<AiSettings>(response);
+}
+
+export async function updateAiSettings(scope: TenantScope, input: Partial<AiSettings>) {
+  const response = await apiRequest<unknown>('/api/ai-settings', {
+    method: 'PATCH',
+    body: {
+      ...scope,
+      settings: input,
+    },
+  });
+  return readSettings<AiSettings>(response);
+}
+
+export interface AiReceptionistToolCallInput {
+  type: 'createAppointment';
+  customerId: string;
+  serviceId: string;
+  staffId: string;
+  channelId?: string;
+  conversationId?: string;
+  startTime: string;
+  endTime: string;
+  notes?: string | null;
+  intent?: string | null;
+}
+
+export interface AiReceptionistRunInput {
+  conversationId: string;
+  message: string;
+  intent?: string;
+  toolCall?: Partial<AiReceptionistToolCallInput>;
+}
+
+export interface AiReceptionistRunResult {
+  settings: AiSettings;
+  assistantMessage: string;
+  appointment: Appointment | null;
+  conversation: Conversation;
+  message: Message | null;
+  auditLog: AuditLog;
+}
+
+export async function runAiReceptionist(scope: TenantScope, input: AiReceptionistRunInput) {
+  return apiRequest<AiReceptionistRunResult>('/api/ai/receptionist/run', {
+    method: 'POST',
+    body: {
+      ...scope,
+      ...input,
+    },
+  });
 }

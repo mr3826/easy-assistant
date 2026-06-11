@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type {
   ApiRouteContract,
+  AiReceptionistRunRequest,
+  AiReceptionistRunResponse,
+  AiSettingsMutationRequest,
   AvailabilitySlotsRequest,
   AvailabilitySlotsResponse,
   ConversationScopedRequest,
@@ -16,6 +19,8 @@ import {
   isBlockingAppointmentStatus,
 } from '../server/domain';
 import type {
+  AiSettings,
+  AuditLog,
   Appointment,
   BusinessHour,
   Channel,
@@ -87,6 +92,24 @@ describe('backend auth and domain contracts', () => {
     expect(API_ROUTES.customerDetail).toMatchObject({
       method: 'GET',
       path: '/api/customers/:customerId',
+      authRequired: true,
+    });
+  });
+
+  it('keeps the ai settings and receptionist routes aligned with the backend surface', () => {
+    expect(API_ROUTES.aiSettings).toMatchObject({
+      method: 'GET',
+      path: '/api/ai-settings',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateAiSettings).toMatchObject({
+      method: 'PATCH',
+      path: '/api/ai-settings',
+      authRequired: true,
+    });
+    expect(API_ROUTES.aiReceptionistRun).toMatchObject({
+      method: 'POST',
+      path: '/api/ai/receptionist/run',
       authRequired: true,
     });
   });
@@ -784,5 +807,218 @@ describe('phase 4 conversation contracts', () => {
     expect(phase4ConversationContracts.humanTakeover.path).toBe('/api/conversations/:conversationId/human-takeover');
     expect(phase4ConversationContracts.closeConversation.response.conversation.state).toBe('closed');
     expect(phase4ConversationContracts.channels.response.items).toHaveLength(1);
+  });
+});
+
+const phase6Timestamp = '2026-06-11T02:00:00+06:00';
+const phase6AiSettingsId = 'ai-settings-1';
+
+const phase6Conversation: Conversation = {
+  id: 'conv-ai-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  channelId: phase4Channel.id,
+  customerId: phase2Customer.id,
+  externalConversationId: 'wa-thread-ai-1',
+  state: 'ai_handled',
+  lastMessageAt: phase6Timestamp,
+  assignedUserId: null,
+  createdAt: phase6Timestamp,
+  updatedAt: phase6Timestamp,
+};
+
+const phase6DefaultAiSettings: AiSettings = {
+  id: phase6AiSettingsId,
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  assistantName: 'Easy Assistant',
+  tone: 'friendly',
+  defaultLanguage: 'en',
+  greetingMessage: "Hi! I'm your booking assistant. How can I help you today?",
+  humanHandoffMessage: 'Thanks. A human team member will take it from here.',
+  autoConfirmBookings: true,
+  reminderEnabled: false,
+  createdAt: phase6Timestamp,
+  updatedAt: phase6Timestamp,
+};
+
+const phase6UpdatedAiSettings: AiSettings = {
+  ...phase6DefaultAiSettings,
+  assistantName: 'Mina AI',
+  tone: 'professional',
+  defaultLanguage: 'bn',
+  greetingMessage: 'Assalamu alaikum! How can I help with your booking?',
+  humanHandoffMessage: 'A human team member will take it from here.',
+  autoConfirmBookings: false,
+  reminderEnabled: true,
+  updatedAt: '2026-06-11T02:10:00+06:00',
+};
+
+const phase6ToolCall = {
+  type: 'createAppointment',
+  customerId: phase2Customer.id,
+  serviceId: phase2Service.id,
+  staffId: phase2Staff.id,
+  channelId: phase4Channel.id,
+  conversationId: phase6Conversation.id,
+  startTime: '2026-06-11T04:00:00.000Z',
+  endTime: '2026-06-11T04:30:00.000Z',
+  notes: 'Prefer the morning slot',
+  intent: 'book',
+} as const;
+
+const phase6Appointment: Appointment = {
+  id: 'appt-ai-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  customerId: phase2Customer.id,
+  serviceId: phase2Service.id,
+  staffId: phase2Staff.id,
+  channelId: phase4Channel.id,
+  conversationId: phase6Conversation.id,
+  startTime: '2026-06-11T04:00:00.000Z',
+  endTime: '2026-06-11T04:30:00.000Z',
+  status: 'pending',
+  notes: 'Prefer the morning slot',
+  createdBy: 'ai',
+  createdAt: phase6Timestamp,
+  updatedAt: phase6Timestamp,
+};
+
+const phase6Message: Message = {
+  id: 'msg-ai-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  conversationId: phase6Conversation.id,
+  sender: 'ai',
+  direction: 'outbound',
+  body: "Mina AI: You're booked for 2026-06-11T04:00:00.000Z. I'll confirm the details shortly.",
+  externalMessageId: null,
+  sentAt: phase6Timestamp,
+  metadata: {
+    source: 'ai-receptionist',
+    intent: 'book',
+    toolCallType: 'createAppointment',
+    aiSettingsId: phase6AiSettingsId,
+    auditLogId: 'audit-ai-1',
+    transport: 'whatsapp',
+    deliveryStatus: 'queued',
+    channelId: phase4Channel.id,
+    channelType: 'whatsapp',
+  },
+  createdAt: phase6Timestamp,
+  updatedAt: phase6Timestamp,
+};
+
+const phase6AuditLog: AuditLog = {
+  id: 'audit-ai-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  actorUserId: 'user-1',
+  actorType: 'ai',
+  action: 'ai_receptionist.create_appointment',
+  entityType: 'appointment',
+  entityId: phase6Appointment.id,
+  metadata: {
+    intent: 'book',
+    messageText: 'Please book me a haircut tomorrow morning.',
+    toolCall: phase6ToolCall,
+    assistantName: phase6UpdatedAiSettings.assistantName,
+    autoConfirmBookings: phase6UpdatedAiSettings.autoConfirmBookings,
+  },
+  createdAt: phase6Timestamp,
+};
+
+const phase6Contracts = {
+  aiSettings: {
+    method: 'GET',
+    path: '/api/ai-settings',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: {
+      settings: phase6DefaultAiSettings,
+    },
+  },
+  updateAiSettings: {
+    method: 'PATCH',
+    path: '/api/ai-settings',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      settings: {
+        assistantName: phase6UpdatedAiSettings.assistantName,
+        tone: phase6UpdatedAiSettings.tone,
+        defaultLanguage: phase6UpdatedAiSettings.defaultLanguage,
+        greetingMessage: phase6UpdatedAiSettings.greetingMessage,
+        humanHandoffMessage: phase6UpdatedAiSettings.humanHandoffMessage,
+        autoConfirmBookings: phase6UpdatedAiSettings.autoConfirmBookings,
+        reminderEnabled: phase6UpdatedAiSettings.reminderEnabled,
+      },
+    } satisfies AiSettingsMutationRequest,
+    response: {
+      settings: phase6UpdatedAiSettings,
+    },
+  },
+  aiReceptionistRun: {
+    method: 'POST',
+    path: '/api/ai/receptionist/run',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase6Conversation.id,
+      message: 'Please book me a haircut tomorrow morning.',
+      intent: 'book',
+      toolCall: phase6ToolCall,
+    } satisfies AiReceptionistRunRequest,
+    response: {
+      settings: phase6UpdatedAiSettings,
+      assistantMessage: phase6Message.body,
+      appointment: phase6Appointment,
+      conversation: phase6Conversation,
+      message: phase6Message,
+      auditLog: phase6AuditLog,
+    } satisfies AiReceptionistRunResponse,
+  },
+} satisfies {
+  aiSettings: ApiRouteContract<TenantScopedRequest, { settings: AiSettings }>;
+  updateAiSettings: ApiRouteContract<AiSettingsMutationRequest, { settings: AiSettings }>;
+  aiReceptionistRun: ApiRouteContract<AiReceptionistRunRequest, AiReceptionistRunResponse>;
+};
+
+describe('phase 6 AI receptionist contracts', () => {
+  it('keeps the AI settings and receptionist route metadata aligned', () => {
+    expect(API_ROUTES.aiSettings).toMatchObject({
+      method: 'GET',
+      path: '/api/ai-settings',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateAiSettings).toMatchObject({
+      method: 'PATCH',
+      path: '/api/ai-settings',
+      authRequired: true,
+    });
+    expect(API_ROUTES.aiReceptionistRun).toMatchObject({
+      method: 'POST',
+      path: '/api/ai/receptionist/run',
+      authRequired: true,
+    });
+  });
+
+  it('keeps the AI settings CRUD and receptionist sample payloads tenant-scoped and tool-call shaped', () => {
+    expect(phase6Contracts.aiSettings.request.organizationId).toBe('org-1');
+    expect(phase6Contracts.aiSettings.response.settings.assistantName).toBe('Easy Assistant');
+    expect(phase6Contracts.updateAiSettings.request.settings.tone).toBe('professional');
+    expect(phase6Contracts.updateAiSettings.response.settings.autoConfirmBookings).toBe(false);
+    expect(phase6Contracts.aiReceptionistRun.request.toolCall.type).toBe('createAppointment');
+    expect(phase6Contracts.aiReceptionistRun.request.toolCall.channelId).toBe(phase4Channel.id);
+    expect(phase6Contracts.aiReceptionistRun.response.appointment?.createdBy).toBe('ai');
+    expect(phase6Contracts.aiReceptionistRun.response.message?.sender).toBe('ai');
+    expect(phase6Contracts.aiReceptionistRun.response.auditLog.action).toBe('ai_receptionist.create_appointment');
+    expect(phase6Contracts.aiReceptionistRun.response.settings.assistantName).toBe('Mina AI');
   });
 });

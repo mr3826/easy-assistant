@@ -158,6 +158,25 @@ export function serializeChannel(row) {
     : null;
 }
 
+export function serializeAiSettings(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        assistantName: row.assistant_name,
+        tone: row.tone,
+        defaultLanguage: row.default_language,
+        greetingMessage: row.greeting_message,
+        humanHandoffMessage: row.human_handoff_message,
+        autoConfirmBookings: toBoolean(row.auto_confirm_bookings),
+        reminderEnabled: toBoolean(row.reminder_enabled),
+        createdAt: toIso(row.created_at),
+        updatedAt: toIso(row.updated_at),
+      }
+    : null;
+}
+
 export function serializeConversation(row) {
   return row
     ? {
@@ -191,6 +210,23 @@ export function serializeMessage(row) {
         metadata: parseJsonValue(row.metadata, {}),
         createdAt: toIso(row.created_at),
         updatedAt: toIso(row.updated_at),
+      }
+    : null;
+}
+
+export function serializeAuditLog(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        actorUserId: row.actor_user_id,
+        actorType: row.actor_type,
+        action: row.action,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        metadata: parseJsonValue(row.metadata, {}),
+        createdAt: toIso(row.created_at),
       }
     : null;
 }
