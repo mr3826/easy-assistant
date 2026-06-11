@@ -3,6 +3,8 @@ import type {
   ApiRouteContract,
   AvailabilitySlotsRequest,
   AvailabilitySlotsResponse,
+  ConversationScopedRequest,
+  MessageMutationRequest,
   PaginatedResponse,
   TenantScopedRequest,
 } from '../server/api/contracts';
@@ -16,7 +18,10 @@ import {
 import type {
   Appointment,
   BusinessHour,
+  Channel,
+  Conversation,
   Customer,
+  Message,
   Service,
   Staff,
   StaffHour,
@@ -428,6 +433,180 @@ const phase2Contracts = {
   customers: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Customer>>;
 };
 
+const phase4Timestamp = '2026-06-11T01:00:00+06:00';
+
+const phase4ConversationOpen: Conversation = {
+  id: 'conv-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  channelId: 'channel-whatsapp',
+  customerId: phase2Customer.id,
+  externalConversationId: 'wa-thread-1',
+  state: 'ai_handled',
+  lastMessageAt: phase4Timestamp,
+  assignedUserId: null,
+  createdAt: phase4Timestamp,
+  updatedAt: phase4Timestamp,
+};
+
+const phase4ConversationHuman: Conversation = {
+  ...phase4ConversationOpen,
+  state: 'human_handled',
+  assignedUserId: 'user-human-1',
+  updatedAt: '2026-06-11T01:15:00+06:00',
+};
+
+const phase4ConversationClosed: Conversation = {
+  ...phase4ConversationOpen,
+  state: 'closed',
+  updatedAt: '2026-06-11T01:30:00+06:00',
+};
+
+const phase4Message: Message = {
+  id: 'msg-1',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  conversationId: phase4ConversationOpen.id,
+  sender: 'human',
+  direction: 'outbound',
+  body: 'I have taken over this conversation.',
+  externalMessageId: null,
+  sentAt: phase4Timestamp,
+  metadata: { source: 'manual-takeover' },
+  createdAt: phase4Timestamp,
+  updatedAt: phase4Timestamp,
+};
+
+const phase4Channel: Channel = {
+  id: 'channel-whatsapp',
+  organizationId: 'org-1',
+  locationId: 'loc-1',
+  type: 'whatsapp',
+  name: 'WhatsApp',
+  externalAccountId: 'acct-1',
+  externalPhoneNumberId: 'phone-1',
+  displayPhoneNumber: '+8801000000000',
+  encryptedAccessToken: null,
+  verifyTokenHash: null,
+  active: true,
+  metadata: { provider: 'whatsapp' },
+  createdAt: phase4Timestamp,
+  updatedAt: phase4Timestamp,
+};
+
+const phase4ConversationContracts = {
+  conversations: {
+    method: 'GET',
+    path: '/api/conversations',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: paginated([phase4ConversationOpen]),
+  },
+  conversationDetail: {
+    method: 'GET',
+    path: '/api/conversations/:conversationId',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase4ConversationOpen.id,
+    } satisfies ConversationScopedRequest,
+    response: {
+      conversation: phase4ConversationOpen,
+    },
+  },
+  messages: {
+    method: 'GET',
+    path: '/api/conversations/:conversationId/messages',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase4ConversationOpen.id,
+    } satisfies ConversationScopedRequest,
+    response: paginated([phase4Message]),
+  },
+  sendMessage: {
+    method: 'POST',
+    path: '/api/conversations/:conversationId/messages',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase4ConversationOpen.id,
+      message: {
+        body: phase4Message.body,
+        sender: phase4Message.sender,
+        direction: phase4Message.direction,
+      },
+    } satisfies MessageMutationRequest,
+    response: {
+      message: phase4Message,
+    },
+  },
+  takeoverConversation: {
+    method: 'POST',
+    path: '/api/conversations/:conversationId/takeover',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase4ConversationOpen.id,
+    } satisfies ConversationScopedRequest,
+    response: {
+      conversation: phase4ConversationHuman,
+    },
+  },
+  humanTakeover: {
+    method: 'POST',
+    path: '/api/conversations/:conversationId/human-takeover',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase4ConversationOpen.id,
+    } satisfies ConversationScopedRequest,
+    response: {
+      conversation: phase4ConversationHuman,
+    },
+  },
+  closeConversation: {
+    method: 'POST',
+    path: '/api/conversations/:conversationId/close',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+      conversationId: phase4ConversationOpen.id,
+    } satisfies ConversationScopedRequest,
+    response: {
+      conversation: phase4ConversationClosed,
+    },
+  },
+  channels: {
+    method: 'GET',
+    path: '/api/channels',
+    authRequired: true,
+    request: {
+      organizationId: 'org-1',
+      locationId: 'loc-1',
+    } satisfies TenantScopedRequest,
+    response: paginated([phase4Channel]),
+  },
+} satisfies {
+  conversations: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Conversation>>;
+  conversationDetail: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  messages: ApiRouteContract<ConversationScopedRequest, PaginatedResponse<Message>>;
+  sendMessage: ApiRouteContract<MessageMutationRequest, { message: Message }>;
+  takeoverConversation: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  humanTakeover: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  closeConversation: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  channels: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Channel>>;
+};
+
 describe('phase 2 core booking data contracts', () => {
   it('keeps the phase 2 route metadata aligned for services, staff, availability, customers, and appointments', () => {
     expect(API_ROUTES.services).toMatchObject({
@@ -529,5 +708,61 @@ describe('phase 2 core booking data contracts', () => {
     expect(phase2Contracts.appointments.response.items[0]!.status).toBe('confirmed');
     expect(phase2Contracts.createAppointment.response.appointment.customerId).toBe(phase2Customer.id);
     expect(phase2Contracts.customers.response.items[0]!.consentStatus).toBe('opted_in');
+  });
+});
+
+describe('phase 4 conversation contracts', () => {
+  it('keeps the briefed conversation, message, takeover, close, and channel routes aligned', () => {
+    expect(API_ROUTES.conversations).toMatchObject({
+      method: 'GET',
+      path: '/api/conversations',
+      authRequired: true,
+    });
+    expect(API_ROUTES.conversationDetail).toMatchObject({
+      method: 'GET',
+      path: '/api/conversations/:conversationId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.messages).toMatchObject({
+      method: 'GET',
+      path: '/api/conversations/:conversationId/messages',
+      authRequired: true,
+    });
+    expect(API_ROUTES.sendMessage).toMatchObject({
+      method: 'POST',
+      path: '/api/conversations/:conversationId/messages',
+      authRequired: true,
+    });
+    expect(API_ROUTES.takeoverConversation).toMatchObject({
+      method: 'POST',
+      path: '/api/conversations/:conversationId/takeover',
+      authRequired: true,
+    });
+    expect(API_ROUTES.humanTakeover).toMatchObject({
+      method: 'POST',
+      path: '/api/conversations/:conversationId/human-takeover',
+      authRequired: true,
+    });
+    expect(API_ROUTES.closeConversation).toMatchObject({
+      method: 'POST',
+      path: '/api/conversations/:conversationId/close',
+      authRequired: true,
+    });
+    expect(API_ROUTES.channels).toMatchObject({
+      method: 'GET',
+      path: '/api/channels',
+      authRequired: true,
+    });
+  });
+
+  it('keeps the conversation contract samples tenant-scoped and state-aware', () => {
+    expect(phase4ConversationContracts.conversations.request.organizationId).toBe('org-1');
+    expect(phase4ConversationContracts.conversationDetail.request.conversationId).toBe(phase4ConversationOpen.id);
+    expect(phase4ConversationContracts.messages.request.conversationId).toBe(phase4ConversationOpen.id);
+    expect(phase4ConversationContracts.sendMessage.request.message.body).toBe(phase4Message.body);
+    expect(phase4ConversationContracts.takeoverConversation.response.conversation.state).toBe('human_handled');
+    expect(phase4ConversationContracts.humanTakeover.path).toBe('/api/conversations/:conversationId/human-takeover');
+    expect(phase4ConversationContracts.closeConversation.response.conversation.state).toBe('closed');
+    expect(phase4ConversationContracts.channels.response.items).toHaveLength(1);
   });
 });

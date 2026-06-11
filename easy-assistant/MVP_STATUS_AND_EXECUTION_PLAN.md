@@ -24,7 +24,7 @@ Phase 2 is now visible in the repo as a booking-data foundation: service, staff,
 | Appointment lifecycle | Partial | Appointments page exists; status helpers and route contract samples are in tests | Persistent appointments, statuses, create/cancel/reschedule/complete/no-show APIs | Phase 2 |
 | Conflict prevention | Partial | `src/server/domain/appointments.ts` detects blocking appointment overlaps by organization, location, and staff | Database transaction enforcement during create/reschedule | Phase 3 |
 | Customers | Partial | Customer type/schema list entries and route contract samples exist | Customer table, phone dedupe, consent fields, export/delete | Phase 2 |
-| Conversations | Partial | Conversations page exists | Persistent conversations/messages, human takeover, manual replies | Phase 4 |
+| Conversations | Implemented | Conversations page now hydrates from the API, conversation/channel state is persisted, and human takeover/manual replies are wired | WhatsApp-native inbound ingestion, webhook persistence, and outbound send flows | Phase 4 complete |
 | WhatsApp integration | Missing | Channels page exists | Secure credential storage, webhook verify/ingest/send/templates | Phase 5 |
 | AI receptionist workflow | Missing | AI settings page exists | Intent detection, tool-calling booking flow, AI action logs, guardrails | Phase 6 |
 | Reminders | Missing | No queue/reminder domain found | Reminder settings, queue, WhatsApp templates, delivery log | Phase 7 |
@@ -43,6 +43,7 @@ Phase 2 is now visible in the repo as a booking-data foundation: service, staff,
 | Phase 2 booking-data route contracts | Covered at contract level | `src/test/backend-contracts.test.ts` now verifies service, staff, availability, customer, and appointment route metadata plus typed tenant-scoped request/response samples. |
 | Scheduling slot generation | Covered at domain level | `src/test/scheduling-domain.test.ts` verifies business/staff hours, staff-service assignment, timezone output, and conflict exclusion. |
 | Appointment conflict prevention | Covered at domain level | `src/test/scheduling-domain.test.ts` verifies overlap detection, non-blocking statuses, and tenant/location scoping. |
+| Conversation and message lifecycle | Covered at contract/runtime level | `src/test/backend-contracts.test.ts` and `src/test/backend-conversation-lifecycle.test.ts` verify conversation, channel, takeover, close, and message persistence paths. |
 | Service CRUD | Missing | Add tests when persistent service API/domain exists. |
 | Staff CRUD | Missing | Add tests when persistent staff API/domain exists. |
 | WhatsApp webhook handling | Missing | Add tests when webhook routes and signature validation exist. |
@@ -178,7 +179,7 @@ Exit checks: setup docs are current, quality commands pass, and deferred modules
 
 ## Immediate Next Tasks
 
-1. Complete tenant-scoped CRUD for services, staff, customers, appointments, and availability settings on top of the new backend foundation.
-2. Expose `GET /api/availability/slots` using the scheduling domain and enforce conflict checks in appointment create/reschedule.
-3. Add seed data and demo workflows for the new backend so the MVP can be exercised end to end.
-4. Expand the quality gates around the new API surface, especially auth/session and route-contract coverage.
+1. Complete WhatsApp channel credentials, webhook verification, inbound persistence, and outbound send flows on top of the new conversation layer.
+2. Add compliance and opt-out handling for WhatsApp replies before the AI receptionist phase starts.
+3. Expand the quality gates around the new API surface, especially webhook, conversation, and message coverage.
+4. Keep the launch-readiness docs current as the MVP moves toward WhatsApp-first demo flow and AI receptionist orchestration.

@@ -206,6 +206,104 @@ export function createRepository(db) {
       return db.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC').all(userId);
     },
 
+    listChannels(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM channels
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY CASE WHEN type = 'manual' THEN 0 ELSE 1 END, created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    findChannelById(channelId) {
+      return one(db, 'channels', 'id', channelId);
+    },
+
+    createChannel(input) {
+      db.prepare(`
+        INSERT INTO channels (
+          id, organization_id, location_id, type, name, external_account_id, external_phone_number_id,
+          display_phone_number, encrypted_access_token, verify_token_hash, active, metadata, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.type,
+        input.name,
+        input.externalAccountId ?? null,
+        input.externalPhoneNumberId ?? null,
+        input.displayPhoneNumber ?? null,
+        input.encryptedAccessToken ?? null,
+        input.verifyTokenHash ?? null,
+        input.active === false ? 0 : 1,
+        stringifyJsonValue(input.metadata, {}),
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findChannelById(input.id);
+    },
+
+    updateChannel(channelId, updates) {
+      updateRow(db, 'channels', 'id', channelId, {
+        type: updates.type,
+        name: updates.name,
+        external_account_id: updates.externalAccountId,
+        external_phone_number_id: updates.externalPhoneNumberId,
+        display_phone_number: updates.displayPhoneNumber,
+        encrypted_access_token: updates.encryptedAccessToken,
+        verify_token_hash: updates.verifyTokenHash,
+        metadata: updates.metadata === undefined ? undefined : stringifyJsonValue(updates.metadata, {}),
+        active: updates.active === undefined ? undefined : booleanToInt(updates.active),
+        updated_at: updates.updatedAt,
+      });
+      return this.findChannelById(channelId);
+    },
+
+    deactivateChannel(channelId, updatedAt) {
+      updateRow(db, 'channels', 'id', channelId, { active: 0, updated_at: updatedAt });
+      return this.findChannelById(channelId);
+    },
+
+    ensureDefaultChannel(scope, timestamps, defaults = {}) {
+      const existing = db
+        .prepare(
+          `
+            SELECT *
+            FROM channels
+            WHERE organization_id = ? AND location_id = ? AND active = 1
+            ORDER BY CASE WHEN type = 'manual' THEN 0 ELSE 1 END, created_at ASC
+            LIMIT 1
+          `,
+        )
+        .get(scope.organizationId, scope.locationId);
+
+      if (existing) {
+        return existing;
+      }
+
+      return this.createChannel({
+        id: generateRowId(),
+        organizationId: scope.organizationId,
+        locationId: scope.locationId,
+        type: defaults.type ?? 'manual',
+        name: defaults.name ?? 'Default inbox',
+        externalAccountId: defaults.externalAccountId ?? null,
+        externalPhoneNumberId: defaults.externalPhoneNumberId ?? null,
+        displayPhoneNumber: defaults.displayPhoneNumber ?? null,
+        encryptedAccessToken: defaults.encryptedAccessToken ?? null,
+        verifyTokenHash: defaults.verifyTokenHash ?? null,
+        metadata: defaults.metadata ?? { seeded: true, source: 'signup' },
+        active: defaults.active ?? true,
+        createdAt: timestamps.createdAt,
+        updatedAt: timestamps.updatedAt,
+      });
+    },
+
     listServices(scope) {
       return db
         .prepare(
@@ -565,6 +663,117 @@ export function createRepository(db) {
         .all(scope.organizationId, scope.locationId);
     },
 
+    listConversations(scope) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM conversations
+            WHERE organization_id = ? AND location_id = ?
+            ORDER BY COALESCE(last_message_at, created_at) DESC, created_at DESC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId);
+    },
+
+    findConversationById(conversationId) {
+      return one(db, 'conversations', 'id', conversationId);
+    },
+
+    createConversation(input) {
+      db.prepare(`
+        INSERT INTO conversations (
+          id, organization_id, location_id, channel_id, customer_id, external_conversation_id, state,
+          last_message_at, assigned_user_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.channelId,
+        input.customerId ?? null,
+        input.externalConversationId ?? null,
+        input.state ?? 'ai_handled',
+        input.lastMessageAt ?? null,
+        input.assignedUserId ?? null,
+        input.createdAt,
+        input.updatedAt,
+      );
+      return this.findConversationById(input.id);
+    },
+
+    updateConversation(conversationId, updates) {
+      updateRow(db, 'conversations', 'id', conversationId, {
+        channel_id: updates.channelId,
+        customer_id: updates.customerId,
+        external_conversation_id: updates.externalConversationId,
+        state: updates.state,
+        last_message_at: updates.lastMessageAt,
+        assigned_user_id: updates.assignedUserId,
+        updated_at: updates.updatedAt,
+      });
+      return this.findConversationById(conversationId);
+    },
+
+    listMessages(scope, conversationId) {
+      return db
+        .prepare(
+          `
+            SELECT *
+            FROM messages
+            WHERE organization_id = ? AND location_id = ? AND conversation_id = ?
+            ORDER BY sent_at ASC, created_at ASC
+          `,
+        )
+        .all(scope.organizationId, scope.locationId, conversationId);
+    },
+
+    findMessageById(messageId) {
+      return one(db, 'messages', 'id', messageId);
+    },
+
+    createMessage(input) {
+      db.prepare(`
+        INSERT INTO messages (
+          id, organization_id, location_id, conversation_id, sender, direction, body, external_message_id,
+          sent_at, metadata, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.id,
+        input.organizationId,
+        input.locationId,
+        input.conversationId,
+        input.sender,
+        input.direction,
+        input.body,
+        input.externalMessageId ?? null,
+        input.sentAt,
+        stringifyJsonValue(input.metadata, {}),
+        input.createdAt,
+        input.updatedAt,
+      );
+
+      updateRow(db, 'conversations', 'id', input.conversationId, {
+        last_message_at: input.sentAt,
+        updated_at: input.updatedAt,
+      });
+
+      return this.findMessageById(input.id);
+    },
+
+    updateMessage(messageId, updates) {
+      updateRow(db, 'messages', 'id', messageId, {
+        sender: updates.sender,
+        direction: updates.direction,
+        body: updates.body,
+        external_message_id: updates.externalMessageId,
+        sent_at: updates.sentAt,
+        metadata: updates.metadata === undefined ? undefined : stringifyJsonValue(updates.metadata, {}),
+        updated_at: updates.updatedAt,
+      });
+      return this.findMessageById(messageId);
+    },
+
     findCustomerById(customerId) {
       return one(db, 'customers', 'id', customerId);
     },
@@ -727,6 +936,14 @@ function updateRow(db, table, idColumn, id, updates) {
 
 function booleanToInt(value) {
   return value ? 1 : 0;
+}
+
+function stringifyJsonValue(value, fallback = {}) {
+  if (value === undefined) {
+    return JSON.stringify(fallback);
+  }
+
+  return JSON.stringify(value);
 }
 
 function chooseCurrentMembership(memberships) {

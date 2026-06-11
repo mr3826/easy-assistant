@@ -68,6 +68,15 @@ export function createAuthService(repository, db = repository.db) {
           updatedAt: now,
         });
 
+        repository.ensureDefaultChannel(
+          { organizationId, locationId },
+          { createdAt: now, updatedAt: now },
+          {
+            name: 'Default inbox',
+            metadata: { seeded: true, source: 'signup' },
+          },
+        );
+
         const membership = repository.createMembership({
           id: membershipId,
           organizationId,

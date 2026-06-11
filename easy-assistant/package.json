@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "backend:dev": "node server/index.mjs",
-    "backend:test": "vitest run src/test/auth-api.test.ts src/test/auth-session-flow.test.tsx src/test/backend-contracts.test.ts",
+    "backend:test": "vitest run src/test/auth-api.test.ts src/test/auth-session-flow.test.tsx src/test/backend-contracts.test.ts src/test/backend-conversation-lifecycle.test.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },

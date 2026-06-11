@@ -1,7 +1,10 @@
 import type {
   Appointment,
+  Channel,
   BusinessHour,
+  Conversation,
   Customer,
+  Message,
   Service,
   Staff,
   StaffHour,
@@ -11,6 +14,29 @@ import { apiRequest } from './client';
 export interface TenantScope {
   organizationId: string;
   locationId: string;
+}
+
+export interface ConversationThreadSummary extends Conversation {
+  customerName?: string | null;
+  customerPhone?: string | null;
+  channelName?: string | null;
+  channelType?: Channel['type'] | null;
+  channelDisplayPhoneNumber?: string | null;
+  lastMessagePreview?: string | null;
+  unreadCount?: number | null;
+}
+
+export interface ConversationThreadDetail {
+  conversation: Conversation;
+  customer: Customer | null;
+  channel: Channel | null;
+  messages: Message[];
+}
+
+export interface SendConversationMessageInput {
+  body: string;
+  sender?: Message['sender'];
+  direction?: Message['direction'];
 }
 
 function buildTenantSearchParams(scope: TenantScope, extra: Record<string, string | number | undefined> = {}) {
@@ -88,6 +114,28 @@ function readEntity<T>(response: unknown, keys: string[] = []): T | null {
   return null;
 }
 
+function readOptionalText(candidate: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = candidate[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function readOptionalNumber(candidate: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = candidate[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 async function requestCollection<T>(
   path: string,
   scope: TenantScope,
@@ -103,6 +151,64 @@ async function requestCollection<T>(
 async function requestEntity<T>(path: string, options: { method: 'POST' | 'PATCH' | 'DELETE'; body?: unknown }) {
   const response = await apiRequest<unknown>(path, options);
   return readEntity<T>(response, ['service', 'staff', 'appointment', 'customer', 'hours', 'businessHours', 'staffHours']);
+}
+
+function normalizeConversationSummary(item: unknown): ConversationThreadSummary | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  const conversation = readEntity<Conversation>(item, ['conversation']) ?? ('id' in candidate ? (item as Conversation) : null);
+
+  if (!conversation) {
+    return null;
+  }
+
+  const customer = readEntity<Customer>(candidate, ['customer']);
+  const channel = readEntity<Channel>(candidate, ['channel']);
+
+  return {
+    ...conversation,
+    customerName:
+      readOptionalText(candidate, ['customerName', 'customer_name']) ?? customer?.name ?? null,
+    customerPhone:
+      readOptionalText(candidate, ['customerPhone', 'customer_phone']) ?? customer?.phone ?? null,
+    channelName:
+      readOptionalText(candidate, ['channelName', 'channel_name']) ?? channel?.name ?? null,
+    channelType:
+      (readOptionalText(candidate, ['channelType', 'channel_type']) as Channel['type'] | null)
+      ?? channel?.type
+      ?? null,
+    channelDisplayPhoneNumber:
+      readOptionalText(candidate, ['channelDisplayPhoneNumber', 'channel_display_phone_number']) ?? channel?.displayPhoneNumber ?? null,
+    lastMessagePreview:
+      readOptionalText(candidate, ['lastMessagePreview', 'last_message_preview', 'preview', 'messagePreview']) ?? null,
+    unreadCount:
+      readOptionalNumber(candidate, ['unreadCount', 'unreadMessages', 'unread']) ?? null,
+  };
+}
+
+function normalizeConversationDetail(response: unknown): ConversationThreadDetail | null {
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+
+  const candidate = response as Record<string, unknown>;
+  const conversation = readEntity<Conversation>(response, ['conversation', 'item', 'data']) ?? ('id' in candidate ? (response as Conversation) : null);
+
+  if (!conversation) {
+    return null;
+  }
+
+  const nested = candidate.thread && typeof candidate.thread === 'object' ? (candidate.thread as Record<string, unknown>) : candidate;
+
+  return {
+    conversation,
+    customer: readEntity<Customer>(nested, ['customer']) ?? readEntity<Customer>(candidate, ['customer']),
+    channel: readEntity<Channel>(nested, ['channel']) ?? readEntity<Channel>(candidate, ['channel']),
+    messages: readCollection<Message>(nested, ['messages', 'items', 'data']),
+  };
 }
 
 export function mapServiceStaffFromAppointments(
@@ -271,4 +377,74 @@ export async function fetchStaffHours(scope: TenantScope, staffId: string) {
     'hours',
     'data',
   ]);
+}
+
+export async function fetchConversations(scope: TenantScope) {
+  const response = await apiRequest<unknown>(withQuery('/api/conversations', buildTenantSearchParams(scope)), {
+    method: 'GET',
+  });
+  return readCollection<unknown>(response, ['items', 'conversations', 'data'])
+    .map(normalizeConversationSummary)
+    .filter((item): item is ConversationThreadSummary => item !== null);
+}
+
+export async function fetchConversationDetail(scope: TenantScope, conversationId: string) {
+  const response = await apiRequest<unknown>(
+    withQuery(formatPath('/api/conversations/:conversationId', { conversationId }), buildTenantSearchParams(scope)),
+    {
+      method: 'GET',
+    }
+  );
+  return normalizeConversationDetail(response);
+}
+
+export async function fetchConversationMessages(scope: TenantScope, conversationId: string) {
+  const response = await apiRequest<unknown>(
+    withQuery(formatPath('/api/conversations/:conversationId/messages', { conversationId }), buildTenantSearchParams(scope)),
+    {
+      method: 'GET',
+    }
+  );
+  return readCollection<Message>(response, ['items', 'messages', 'data']);
+}
+
+export async function sendConversationMessage(
+  scope: TenantScope,
+  conversationId: string,
+  input: SendConversationMessageInput
+) {
+  const response = await apiRequest<unknown>(
+    withQuery(formatPath('/api/conversations/:conversationId/messages', { conversationId }), buildTenantSearchParams(scope)),
+    {
+      method: 'POST',
+      body: { ...scope, ...input },
+    }
+  );
+  return readEntity<Message>(response, ['message', 'item', 'data']);
+}
+
+export async function takeoverConversation(scope: TenantScope, conversationId: string) {
+  const response = await apiRequest<unknown>(
+    withQuery(formatPath('/api/conversations/:conversationId/takeover', { conversationId }), buildTenantSearchParams(scope)),
+    {
+      method: 'POST',
+      body: scope,
+    }
+  );
+  return normalizeConversationDetail(response);
+}
+
+export async function closeConversation(scope: TenantScope, conversationId: string) {
+  const response = await apiRequest<unknown>(
+    withQuery(formatPath('/api/conversations/:conversationId/close', { conversationId }), buildTenantSearchParams(scope)),
+    {
+      method: 'POST',
+      body: scope,
+    }
+  );
+  return normalizeConversationDetail(response);
+}
+
+export async function fetchChannels(scope: TenantScope) {
+  return requestCollection<Channel>('/api/channels', scope, {}, ['items', 'channels', 'data']);
 }

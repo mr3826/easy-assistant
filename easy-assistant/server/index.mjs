@@ -4,6 +4,7 @@ import { openDatabase } from './db.mjs';
 import { createRepository } from './repository.mjs';
 import { createAuthService } from './auth-service.mjs';
 import { createPhase2Service } from './phase2.mjs';
+import { createPhase4Service } from './phase4.mjs';
 import {
   buildSessionCookie,
   clearSessionCookie,
@@ -17,6 +18,7 @@ const db = openDatabase();
 const repository = createRepository(db);
 const auth = createAuthService(repository, db);
 const phase2 = createPhase2Service(repository);
+const phase4 = createPhase4Service(repository);
 
 const server = http.createServer(async (req, res) => {
   const requestOrigin = req.headers.origin;
@@ -141,6 +143,85 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/locations' && method === 'GET') {
       jsonResponse(res, 200, page([toLocationPayload(session.location)]), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/channels' && method === 'GET') {
+      jsonResponse(res, 200, phase4.listChannels(scope), requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/conversations' && method === 'GET') {
+      jsonResponse(res, 200, phase4.listConversations(scope), requestOrigin);
+      return;
+    }
+
+    const conversationMessagesMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/messages$/);
+    if (conversationMessagesMatch && method === 'GET') {
+      jsonResponse(res, 200, phase4.listMessages(scope, decodeURIComponent(conversationMessagesMatch[1])), requestOrigin);
+      return;
+    }
+
+    if (conversationMessagesMatch && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(
+        res,
+        201,
+        phase4.sendMessage(
+          scope,
+          session.user.id,
+          decodeURIComponent(conversationMessagesMatch[1]),
+          unwrapPayload(body, 'message'),
+        ),
+        requestOrigin,
+      );
+      return;
+    }
+
+    const conversationTakeoverMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/takeover$/);
+    if (conversationTakeoverMatch && method === 'POST') {
+      await readJsonBody(req);
+      jsonResponse(
+        res,
+        200,
+        phase4.takeoverConversation(scope, session.user.id, decodeURIComponent(conversationTakeoverMatch[1])),
+        requestOrigin,
+      );
+      return;
+    }
+
+    const conversationHumanTakeoverMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/human-takeover$/);
+    if (conversationHumanTakeoverMatch && method === 'POST') {
+      await readJsonBody(req);
+      jsonResponse(
+        res,
+        200,
+        phase4.takeoverConversation(scope, session.user.id, decodeURIComponent(conversationHumanTakeoverMatch[1])),
+        requestOrigin,
+      );
+      return;
+    }
+
+    const conversationCloseMatch = pathname.match(/^\/api\/conversations\/([^/]+)\/close$/);
+    if (conversationCloseMatch && method === 'POST') {
+      await readJsonBody(req);
+      jsonResponse(
+        res,
+        200,
+        phase4.closeConversation(scope, decodeURIComponent(conversationCloseMatch[1])),
+        requestOrigin,
+      );
+      return;
+    }
+
+    const conversationMatch = pathname.match(/^\/api\/conversations\/([^/]+)$/);
+    if (conversationMatch && method === 'GET') {
+      jsonResponse(
+        res,
+        200,
+        phase4.getConversation(scope, decodeURIComponent(conversationMatch[1])),
+        requestOrigin,
+      );
       return;
     }
 

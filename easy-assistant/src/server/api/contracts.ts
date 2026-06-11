@@ -42,6 +42,10 @@ export interface TenantScopedRequest {
   locationId?: EntityId;
 }
 
+export interface ConversationScopedRequest extends TenantScopedRequest {
+  conversationId: EntityId;
+}
+
 export interface AvailabilitySlotsRequest extends TenantScopedRequest {
   serviceId: EntityId;
   date: ISODateString;
@@ -77,6 +81,10 @@ export interface BusinessHoursMutationRequest extends TenantScopedRequest {
 export interface StaffHoursMutationRequest extends TenantScopedRequest {
   staffId: EntityId;
   hours: Partial<StaffHour>[];
+}
+
+export interface MessageMutationRequest extends ConversationScopedRequest {
+  message: Partial<Message>;
 }
 
 export const API_ROUTES = {
@@ -255,6 +263,11 @@ export const API_ROUTES = {
     path: "/api/conversations",
     authRequired: true,
   },
+  conversationDetail: {
+    method: "GET",
+    path: "/api/conversations/:conversationId",
+    authRequired: true,
+  },
   messages: {
     method: "GET",
     path: "/api/conversations/:conversationId/messages",
@@ -265,9 +278,19 @@ export const API_ROUTES = {
     path: "/api/conversations/:conversationId/messages",
     authRequired: true,
   },
+  takeoverConversation: {
+    method: "POST",
+    path: "/api/conversations/:conversationId/takeover",
+    authRequired: true,
+  },
   humanTakeover: {
     method: "POST",
     path: "/api/conversations/:conversationId/human-takeover",
+    authRequired: true,
+  },
+  closeConversation: {
+    method: "POST",
+    path: "/api/conversations/:conversationId/close",
     authRequired: true,
   },
   channels: {
@@ -355,7 +378,12 @@ export interface ApiContractMap {
   deleteCustomer: ApiRouteContract<TenantScopedRequest & { customerId: EntityId }, { customer: Customer }>;
 
   conversations: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Conversation>>;
-  messages: ApiRouteContract<TenantScopedRequest & { conversationId: EntityId }, PaginatedResponse<Message>>;
+  conversationDetail: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  messages: ApiRouteContract<ConversationScopedRequest, PaginatedResponse<Message>>;
+  sendMessage: ApiRouteContract<MessageMutationRequest, { message: Message }>;
+  takeoverConversation: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  humanTakeover: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
+  closeConversation: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
   channels: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Channel>>;
   aiSettings: ApiRouteContract<TenantScopedRequest, { settings: AiSettings }>;
   reminders: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Reminder>>;

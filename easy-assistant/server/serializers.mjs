@@ -16,6 +16,22 @@ export function toBoolean(value) {
   return Boolean(value);
 }
 
+export function parseJsonValue(value, fallback = {}) {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 export function serializeService(row) {
   return row
     ? {
@@ -115,6 +131,64 @@ export function serializeCustomer(row) {
         consentStatus: row.consent_status,
         lastSeenAt: toIso(row.last_seen_at),
         active: toBoolean(row.active),
+        createdAt: toIso(row.created_at),
+        updatedAt: toIso(row.updated_at),
+      }
+    : null;
+}
+
+export function serializeChannel(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        type: row.type,
+        name: row.name,
+        externalAccountId: row.external_account_id,
+        externalPhoneNumberId: row.external_phone_number_id,
+        displayPhoneNumber: row.display_phone_number,
+        encryptedAccessToken: row.encrypted_access_token,
+        verifyTokenHash: row.verify_token_hash,
+        active: toBoolean(row.active),
+        metadata: parseJsonValue(row.metadata, {}),
+        createdAt: toIso(row.created_at),
+        updatedAt: toIso(row.updated_at),
+      }
+    : null;
+}
+
+export function serializeConversation(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        channelId: row.channel_id,
+        customerId: row.customer_id,
+        externalConversationId: row.external_conversation_id,
+        state: row.state,
+        lastMessageAt: toIso(row.last_message_at),
+        assignedUserId: row.assigned_user_id,
+        createdAt: toIso(row.created_at),
+        updatedAt: toIso(row.updated_at),
+      }
+    : null;
+}
+
+export function serializeMessage(row) {
+  return row
+    ? {
+        id: row.id,
+        organizationId: row.organization_id,
+        locationId: row.location_id,
+        conversationId: row.conversation_id,
+        sender: row.sender,
+        direction: row.direction,
+        body: row.body,
+        externalMessageId: row.external_message_id,
+        sentAt: toIso(row.sent_at),
+        metadata: parseJsonValue(row.metadata, {}),
         createdAt: toIso(row.created_at),
         updatedAt: toIso(row.updated_at),
       }

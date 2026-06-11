@@ -159,7 +159,7 @@ npm run backend:dev
 
 Starts the phase-1 backend server on **http://localhost:3000** by default.
 Keep `API_BASE_URL` and `VITE_API_BASE_URL` pointed at the same `/api` prefix.
-The focused backend test harness now also covers the phase-2 booking-data contract surface for services, staff, availability, customers, and appointments.
+The focused backend test harness now also covers the phase-2 booking-data contract surface plus the phase-4 conversation, channel, takeover, and message flow.
 
 ### Type Check
 
@@ -194,7 +194,7 @@ npm run backend:test
 ```
 
 Runs the focused auth/session and backend contract tests that verify the
-phase-1 foundation and the phase-2 booking-data surface.
+phase-1 foundation, the phase-2 booking-data surface, and the phase-4 conversation runtime.
 
 ### Preview Production Build
 
