@@ -87,6 +87,12 @@ export interface MessageMutationRequest extends ConversationScopedRequest {
   message: Partial<Message>;
 }
 
+export interface ChannelMutationRequest extends TenantScopedRequest {
+  channel: Partial<Pick<Channel, "type" | "name" | "externalAccountId" | "externalPhoneNumberId" | "displayPhoneNumber" | "active" | "metadata">>;
+  accessToken?: string | null;
+  verifyToken?: string | null;
+}
+
 export const API_ROUTES = {
   signup: {
     method: "POST",
@@ -298,6 +304,16 @@ export const API_ROUTES = {
     path: "/api/channels",
     authRequired: true,
   },
+  channelDetail: {
+    method: "GET",
+    path: "/api/channels/:channelId",
+    authRequired: true,
+  },
+  updateChannel: {
+    method: "PATCH",
+    path: "/api/channels/:channelId",
+    authRequired: true,
+  },
   whatsappWebhookVerify: {
     method: "GET",
     path: "/api/webhooks/whatsapp",
@@ -385,6 +401,10 @@ export interface ApiContractMap {
   humanTakeover: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
   closeConversation: ApiRouteContract<ConversationScopedRequest, { conversation: Conversation }>;
   channels: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Channel>>;
+  channelDetail: ApiRouteContract<TenantScopedRequest & { channelId: EntityId }, { channel: Channel }>;
+  updateChannel: ApiRouteContract<ChannelMutationRequest & { channelId: EntityId }, { channel: Channel }>;
+  whatsappWebhookVerify: ApiRouteContract<Record<string, string>, { challenge: string }>;
+  whatsappWebhookReceive: ApiRouteContract<Record<string, unknown>, { ok: true; processed: number }>;
   aiSettings: ApiRouteContract<TenantScopedRequest, { settings: AiSettings }>;
   reminders: ApiRouteContract<TenantScopedRequest, PaginatedResponse<Reminder>>;
   reminderDeliveries: ApiRouteContract<TenantScopedRequest & { reminderId: EntityId }, PaginatedResponse<ReminderDelivery>>;

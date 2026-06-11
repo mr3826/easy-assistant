@@ -13,6 +13,18 @@ export function jsonResponse(res, statusCode, body, requestOrigin, extraHeaders 
   res.end(JSON.stringify(body));
 }
 
+export function textResponse(res, statusCode, body, requestOrigin, extraHeaders = {}) {
+  const headers = {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store',
+    ...corsHeaders(requestOrigin),
+    ...extraHeaders,
+  };
+
+  res.writeHead(statusCode, headers);
+  res.end(String(body ?? ''));
+}
+
 export function emptyResponse(res, statusCode, requestOrigin, extraHeaders = {}) {
   res.writeHead(statusCode, {
     ...corsHeaders(requestOrigin),

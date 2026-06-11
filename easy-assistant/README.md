@@ -194,7 +194,7 @@ npm run backend:test
 ```
 
 Runs the focused auth/session and backend contract tests that verify the
-phase-1 foundation, the phase-2 booking-data surface, and the phase-4 conversation runtime.
+phase-1 foundation, the phase-2 booking-data surface, the phase-4 conversation runtime, and the phase-5 WhatsApp runtime.
 
 ### Preview Production Build
 

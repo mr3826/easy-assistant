@@ -223,6 +223,38 @@ export function createRepository(db) {
       return one(db, 'channels', 'id', channelId);
     },
 
+    findChannelByExternalPhoneNumberId(externalPhoneNumberId) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM channels
+              WHERE external_phone_number_id = ? AND active = 1
+              ORDER BY created_at ASC
+              LIMIT 1
+            `,
+          )
+          .get(externalPhoneNumberId) ?? null
+      );
+    },
+
+    findChannelByVerifyTokenHash(verifyTokenHash) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM channels
+              WHERE verify_token_hash = ? AND active = 1
+              ORDER BY created_at ASC
+              LIMIT 1
+            `,
+          )
+          .get(verifyTokenHash) ?? null
+      );
+    },
+
     createChannel(input) {
       db.prepare(`
         INSERT INTO channels (
@@ -663,6 +695,22 @@ export function createRepository(db) {
         .all(scope.organizationId, scope.locationId);
     },
 
+    findCustomerByPhone(scope, phone) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM customers
+              WHERE organization_id = ? AND location_id = ? AND phone = ? AND active = 1
+              ORDER BY created_at ASC
+              LIMIT 1
+            `,
+          )
+          .get(scope.organizationId, scope.locationId, phone) ?? null
+      );
+    },
+
     listConversations(scope) {
       return db
         .prepare(
@@ -678,6 +726,38 @@ export function createRepository(db) {
 
     findConversationById(conversationId) {
       return one(db, 'conversations', 'id', conversationId);
+    },
+
+    findConversationByChannelAndCustomer(channelId, customerId) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM conversations
+              WHERE channel_id = ? AND customer_id = ?
+              ORDER BY COALESCE(last_message_at, created_at) DESC, created_at DESC
+              LIMIT 1
+            `,
+          )
+          .get(channelId, customerId) ?? null
+      );
+    },
+
+    findConversationByChannelAndExternalConversationId(channelId, externalConversationId) {
+      return (
+        db
+          .prepare(
+            `
+              SELECT *
+              FROM conversations
+              WHERE channel_id = ? AND external_conversation_id = ?
+              ORDER BY COALESCE(last_message_at, created_at) DESC, created_at DESC
+              LIMIT 1
+            `,
+          )
+          .get(channelId, externalConversationId) ?? null
+      );
     },
 
     createConversation(input) {

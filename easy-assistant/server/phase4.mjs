@@ -45,6 +45,20 @@ export function createPhase4Service(repository) {
       const direction = normalizeDirection(input.direction, sender);
       const body = requireText(input.body ?? input.text, 'Message body is required.');
       const sentAt = parseOptionalIsoDateTime(input.sentAt, now);
+      const channel = repository.findChannelById(current.channel_id);
+      const customer = current.customer_id ? repository.findCustomerById(current.customer_id) : null;
+      if (channel?.type === 'whatsapp' && direction === 'outbound' && customer?.consent_status === 'opted_out' && sender !== 'system') {
+        throw makeHttpError(409, 'customer_opted_out', 'This customer has opted out of WhatsApp messaging.');
+      }
+
+      const metadata = normalizeObjectMetadata(input.metadata, {});
+      if (channel?.type === 'whatsapp' && direction === 'outbound') {
+        metadata.transport = 'whatsapp';
+        metadata.deliveryStatus = 'queued';
+        metadata.channelId = channel.id;
+        metadata.channelType = channel.type;
+      }
+
       const message = repository.createMessage({
         id: generateId(),
         organizationId: scope.organizationId,
@@ -55,7 +69,7 @@ export function createPhase4Service(repository) {
         body,
         externalMessageId: normalizeNullableText(input.externalMessageId),
         sentAt,
-        metadata: normalizeJsonValue(input.metadata, {}),
+        metadata,
         createdAt: now,
         updatedAt: now,
       });
@@ -205,6 +219,15 @@ function normalizeJsonValue(value, fallback = {}) {
   }
 
   return value;
+}
+
+function normalizeObjectMetadata(value, fallback = {}) {
+  const metadata = normalizeJsonValue(value, fallback);
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return fallback;
+  }
+
+  return metadata;
 }
 
 function parseOptionalIsoDateTime(value, fallbackEpoch) {

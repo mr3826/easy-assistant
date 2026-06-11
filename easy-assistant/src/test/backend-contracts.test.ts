@@ -753,6 +753,26 @@ describe('phase 4 conversation contracts', () => {
       path: '/api/channels',
       authRequired: true,
     });
+    expect(API_ROUTES.channelDetail).toMatchObject({
+      method: 'GET',
+      path: '/api/channels/:channelId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.updateChannel).toMatchObject({
+      method: 'PATCH',
+      path: '/api/channels/:channelId',
+      authRequired: true,
+    });
+    expect(API_ROUTES.whatsappWebhookVerify).toMatchObject({
+      method: 'GET',
+      path: '/api/webhooks/whatsapp',
+      authRequired: false,
+    });
+    expect(API_ROUTES.whatsappWebhookReceive).toMatchObject({
+      method: 'POST',
+      path: '/api/webhooks/whatsapp',
+      authRequired: false,
+    });
   });
 
   it('keeps the conversation contract samples tenant-scoped and state-aware', () => {

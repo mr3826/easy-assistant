@@ -5,6 +5,7 @@ import { createRepository } from './repository.mjs';
 import { createAuthService } from './auth-service.mjs';
 import { createPhase2Service } from './phase2.mjs';
 import { createPhase4Service } from './phase4.mjs';
+import { createPhase5Service } from './phase5.mjs';
 import {
   buildSessionCookie,
   clearSessionCookie,
@@ -12,6 +13,7 @@ import {
   jsonResponse,
   parseCookies,
   readJsonBody,
+  textResponse,
 } from './http-utils.mjs';
 
 const db = openDatabase();
@@ -19,6 +21,7 @@ const repository = createRepository(db);
 const auth = createAuthService(repository, db);
 const phase2 = createPhase2Service(repository);
 const phase4 = createPhase4Service(repository);
+const phase5 = createPhase5Service(repository, { credentialSecret: config.whatsappCredentialSecret });
 
 const server = http.createServer(async (req, res) => {
   const requestOrigin = req.headers.origin;
@@ -133,6 +136,20 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/api/webhooks/whatsapp' && method === 'GET') {
+      const verifyToken = url.searchParams.get('hub.verify_token') ?? url.searchParams.get('verify_token');
+      const challenge = url.searchParams.get('hub.challenge') ?? url.searchParams.get('challenge');
+      const response = phase5.verifyWebhook({ verifyToken, challenge });
+      textResponse(res, 200, response.challenge, requestOrigin);
+      return;
+    }
+
+    if (pathname === '/api/webhooks/whatsapp' && method === 'POST') {
+      const body = await readJsonBody(req);
+      jsonResponse(res, 200, phase5.ingestWebhook(body), requestOrigin);
+      return;
+    }
+
     const session = requireSession(req);
     const scope = toTenantScope(session);
 
@@ -149,6 +166,20 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/channels' && method === 'GET') {
       jsonResponse(res, 200, phase4.listChannels(scope), requestOrigin);
       return;
+    }
+
+    const channelMatch = pathname.match(/^\/api\/channels\/([^/]+)$/);
+    if (channelMatch) {
+      const channelId = decodeURIComponent(channelMatch[1]);
+      if (method === 'GET') {
+        jsonResponse(res, 200, phase5.getChannel(scope, channelId), requestOrigin);
+        return;
+      }
+      if (method === 'PATCH') {
+        const body = await readJsonBody(req);
+        jsonResponse(res, 200, phase5.updateChannel(scope, channelId, body), requestOrigin);
+        return;
+      }
     }
 
     if (pathname === '/api/conversations' && method === 'GET') {

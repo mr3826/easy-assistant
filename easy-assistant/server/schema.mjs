@@ -216,8 +216,12 @@ CREATE INDEX IF NOT EXISTS idx_staff_services_scope ON staff_services(organizati
 CREATE INDEX IF NOT EXISTS idx_business_hours_scope ON business_hours(organization_id, location_id, weekday, active);
 CREATE INDEX IF NOT EXISTS idx_staff_hours_scope ON staff_hours(organization_id, location_id, staff_id, weekday, active);
 CREATE INDEX IF NOT EXISTS idx_customers_scope ON customers(organization_id, location_id, active, created_at);
+CREATE INDEX IF NOT EXISTS idx_customers_phone_scope ON customers(organization_id, location_id, phone, active);
 CREATE INDEX IF NOT EXISTS idx_channels_scope ON channels(organization_id, location_id, active, created_at);
+CREATE INDEX IF NOT EXISTS idx_channels_phone_number_lookup ON channels(external_phone_number_id, active, type);
+CREATE INDEX IF NOT EXISTS idx_channels_verify_token_lookup ON channels(verify_token_hash, active, type);
 CREATE INDEX IF NOT EXISTS idx_conversations_scope ON conversations(organization_id, location_id, state, last_message_at, created_at);
+CREATE INDEX IF NOT EXISTS idx_conversations_channel_external_lookup ON conversations(organization_id, location_id, channel_id, external_conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_scope ON messages(organization_id, location_id, conversation_id, sent_at, created_at);
 CREATE INDEX IF NOT EXISTS idx_appointments_scope ON appointments(organization_id, location_id, start_time, status);
 `;
