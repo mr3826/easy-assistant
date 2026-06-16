@@ -6,8 +6,7 @@ export interface AuthSession {
   memberships: Membership[];
   organization?: Organization | null;
   location?: Location | null;
-  nextRoute?: '/onboarding' | '/dashboard';
-  requiresOnboarding?: boolean;
+  nextRoute?: '/dashboard';
 }
 
 export interface LoginInput {
@@ -28,8 +27,7 @@ interface LoginResponse {
   memberships: Membership[];
   organization?: Organization | null;
   location?: Location | null;
-  nextRoute?: '/onboarding' | '/dashboard';
-  requiresOnboarding?: boolean;
+  nextRoute?: '/dashboard';
 }
 
 interface SignupResponse {
@@ -37,8 +35,7 @@ interface SignupResponse {
   organization: Organization;
   location: Location;
   membership: Membership;
-  nextRoute?: '/onboarding' | '/dashboard';
-  requiresOnboarding?: boolean;
+  nextRoute?: '/dashboard';
 }
 
 function normalizeSession(response: LoginResponse): AuthSession {
@@ -48,7 +45,6 @@ function normalizeSession(response: LoginResponse): AuthSession {
     organization: response.organization ?? null,
     location: response.location ?? null,
     nextRoute: response.nextRoute,
-    requiresOnboarding: response.requiresOnboarding,
   };
 }
 
@@ -59,7 +55,6 @@ function normalizeSignupSession(response: SignupResponse): AuthSession {
     organization: response.organization,
     location: response.location,
     nextRoute: response.nextRoute,
-    requiresOnboarding: response.requiresOnboarding,
   };
 }
 

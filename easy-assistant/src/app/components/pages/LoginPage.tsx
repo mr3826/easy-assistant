@@ -84,7 +84,7 @@ export default function LoginPage() {
       setFormError(null);
       const session = await login(formData.email, formData.password);
       resetForm();
-      const nextPath = session.nextRoute ?? (session.requiresOnboarding ? '/onboarding' : session.memberships.length > 0 ? '/dashboard' : '/onboarding');
+      const nextPath = session.nextRoute === '/dashboard' ? session.nextRoute : '/dashboard';
       navigate(nextPath, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {

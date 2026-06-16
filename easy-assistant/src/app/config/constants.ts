@@ -24,7 +24,6 @@ export const LABELS = {
 export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
-  ONBOARDING: '/onboarding',
   DASHBOARD: '/dashboard',
   APPOINTMENTS: '/appointments',
   CONVERSATIONS: '/conversations',

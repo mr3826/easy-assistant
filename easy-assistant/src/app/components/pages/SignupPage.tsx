@@ -70,7 +70,7 @@ export default function SignupPage() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
       });
 
-      const nextPath = session.nextRoute ?? '/dashboard';
+      const nextPath = session.nextRoute === '/dashboard' ? session.nextRoute : '/dashboard';
       navigate(nextPath, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {

@@ -168,14 +168,6 @@ export default function App() {
               }
             />
             <Route
-              path="/onboarding"
-              element={
-                <AuthGuard>
-                  <Navigate to="/dashboard" replace />
-                </AuthGuard>
-              }
-            />
-            <Route
               path="/dashboard"
               element={
                 <AuthGuard>

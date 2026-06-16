@@ -456,6 +456,9 @@ type TranslationTree = {
     english: string;
     bangla: string;
     englishBangla: string;
+    defaultGreetingMessage: string;
+    defaultHumanHandoffMessage: string;
+    defaultTestMessage: string;
     notSavedYet: string;
     savedRepliesLoaded: string;
     defaultRepliesLoaded: string;
@@ -962,6 +965,9 @@ export const translations: Record<Locale, TranslationTree> = {
       english: 'English',
       bangla: 'Bangla',
       englishBangla: 'English and Bangla',
+      defaultGreetingMessage: 'Hi! This is {business}. I can help you choose a service and book a time.',
+      defaultHumanHandoffMessage: 'Thanks. A team member will take it from here and reply shortly.',
+      defaultTestMessage: 'Hi, can I book bridal makeup for Friday afternoon?',
       notSavedYet: 'Not saved yet',
       savedRepliesLoaded: 'Assistant replies loaded.',
       defaultRepliesLoaded: 'Default assistant replies loaded.',
@@ -987,10 +993,10 @@ export const translations: Record<Locale, TranslationTree> = {
       city: 'City',
       address: 'Address',
       signedInAs: 'Signed in as',
-      pilotSupport: 'Pilot support',
-      pilotSupportDescription: 'Keep account changes assisted until the product is stable.',
-      changeDetails: 'Change business details during onboarding or with support.',
-      passwordChanges: 'Password and advanced account changes are handled with support during the pilot.',
+      pilotSupport: 'Support',
+      pilotSupportDescription: 'Keep account changes guided while the product stabilizes.',
+      changeDetails: 'Update business details with support during setup.',
+      passwordChanges: 'Password and advanced account changes are handled by support.',
       owner: 'Owner',
       notSet: 'Not set',
       accountOwner: 'Account owner',
@@ -1466,6 +1472,9 @@ export const translations: Record<Locale, TranslationTree> = {
       english: 'ইংরেজি',
       bangla: 'বাংলা',
       englishBangla: 'ইংরেজি ও বাংলা',
+      defaultGreetingMessage: 'হ্যালো! এটি {business}। আমি সার্ভিস বাছাই করতে এবং সময় বুক করতে সাহায্য করতে পারি।',
+      defaultHumanHandoffMessage: 'ধন্যবাদ। এখন একজন টিম মেম্বার বিষয়টি দেখবে এবং শিগগিরই reply দেবে।',
+      defaultTestMessage: 'হ্যালো, আমি কি শুক্রবার বিকেলে ব্রাইডাল মেকআপ বুক করতে পারি?',
       notSavedYet: 'এখনও সেভ হয়নি',
       savedRepliesLoaded: 'অ্যাসিস্ট্যান্টের reply লোড হয়েছে।',
       defaultRepliesLoaded: 'ডিফল্ট অ্যাসিস্ট্যান্ট reply লোড হয়েছে।',
@@ -1491,10 +1500,10 @@ export const translations: Record<Locale, TranslationTree> = {
       city: 'শহর',
       address: 'ঠিকানা',
       signedInAs: 'সাইন ইন করা আছে',
-      pilotSupport: 'পাইলট সাপোর্ট',
-      pilotSupportDescription: 'প্রোডাক্ট স্থিতিশীল না হওয়া পর্যন্ত অ্যাকাউন্ট পরিবর্তন সাপোর্টেড রাখুন।',
-      changeDetails: 'অনবোর্ডিংয়ের সময় বা সাপোর্টের মাধ্যমে ব্যবসার তথ্য বদলান।',
-      passwordChanges: 'পাইলট চলাকালে পাসওয়ার্ড ও অ্যাডভান্সড অ্যাকাউন্ট পরিবর্তন সাপোর্টের মাধ্যমে করা হবে।',
+      pilotSupport: 'সাপোর্ট',
+      pilotSupportDescription: 'প্রোডাক্ট স্থিতিশীল হওয়া পর্যন্ত অ্যাকাউন্ট পরিবর্তনে গাইডেড সহায়তা নিন।',
+      changeDetails: 'সেটআপের সময় সাপোর্টের মাধ্যমে ব্যবসার তথ্য আপডেট করুন।',
+      passwordChanges: 'পাসওয়ার্ড ও অ্যাডভান্সড অ্যাকাউন্ট পরিবর্তন সাপোর্টের মাধ্যমে হয়।',
       owner: 'মালিক',
       notSet: 'সেট করা হয়নি',
       accountOwner: 'অ্যাকাউন্ট মালিক',

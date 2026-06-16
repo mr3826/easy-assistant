@@ -33,18 +33,20 @@ interface FeedbackMessage {
   text: string;
 }
 
-const DEFAULT_AI_SETTINGS: AiSettingsDraft = {
-  assistantName: 'Easy Assistant',
-  tone: 'friendly',
-  defaultLanguage: 'en',
-  greetingMessage: `Hi! This is ${DEMO_BUSINESS_NAME}. I can help you choose a service and book a time.`,
-  humanHandoffMessage: 'Thanks. A team member will take it from here and reply shortly.',
-  autoConfirmBookings: true,
-  reminderEnabled: false,
-};
-
 function cloneDraft(value: AiSettingsDraft) {
   return { ...value };
+}
+
+function buildDefaultAiSettings(translate: (key: string) => string): AiSettingsDraft {
+  return {
+    assistantName: 'Easy Assistant',
+    tone: 'friendly',
+    defaultLanguage: 'en',
+    greetingMessage: translate('assistant.defaultGreetingMessage').replace('{business}', DEMO_BUSINESS_NAME),
+    humanHandoffMessage: translate('assistant.defaultHumanHandoffMessage'),
+    autoConfirmBookings: true,
+    reminderEnabled: false,
+  };
 }
 
 function toDraft(settings: AiSettings): AiSettingsDraft {
@@ -130,6 +132,7 @@ function SummaryCard({
 export default function AISettings() {
   const { session, isLoading } = useAuth();
   const { t } = useI18n();
+  const defaultDraft = useMemo(() => buildDefaultAiSettings(t), [t]);
   const scope = useMemo<TenantScope | null>(() => {
     if (!session?.organization?.id || !session?.location?.id) {
       return null;
@@ -141,19 +144,19 @@ export default function AISettings() {
     };
   }, [session]);
 
-  const [serverDraft, setServerDraft] = useState<AiSettingsDraft>(cloneDraft(DEFAULT_AI_SETTINGS));
-  const [formDraft, setFormDraft] = useState<AiSettingsDraft>(cloneDraft(DEFAULT_AI_SETTINGS));
+  const [serverDraft, setServerDraft] = useState<AiSettingsDraft>(cloneDraft(defaultDraft));
+  const [formDraft, setFormDraft] = useState<AiSettingsDraft>(cloneDraft(defaultDraft));
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
-  const [testMessage, setTestMessage] = useState('Hi, can I book bridal makeup for Friday afternoon?');
+  const [testMessage, setTestMessage] = useState(t('assistant.defaultTestMessage'));
 
   const loadSettings = async (nextScope: TenantScope | null = scope) => {
     if (!nextScope) {
-      setServerDraft(cloneDraft(DEFAULT_AI_SETTINGS));
-      setFormDraft(cloneDraft(DEFAULT_AI_SETTINGS));
+      setServerDraft(cloneDraft(defaultDraft));
+      setFormDraft(cloneDraft(defaultDraft));
       setLastSavedAt(null);
       setFeedback({
         tone: 'info',
@@ -167,7 +170,7 @@ export default function AISettings() {
     setLoading(true);
     try {
       const settings = await fetchAiSettings(nextScope);
-      const nextDraft = settings ? toDraft(settings) : cloneDraft(DEFAULT_AI_SETTINGS);
+      const nextDraft = settings ? toDraft(settings) : cloneDraft(defaultDraft);
       setServerDraft(cloneDraft(nextDraft));
       setFormDraft(cloneDraft(nextDraft));
       setLastSavedAt(settings?.updatedAt ?? null);
@@ -189,7 +192,7 @@ export default function AISettings() {
   useEffect(() => {
     void loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope]);
+  }, [defaultDraft, scope, t]);
 
   if (isLoading) {
     return <LoadingFallback message={t('common.loadingAssistant')} />;
