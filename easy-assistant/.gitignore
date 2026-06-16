@@ -7,6 +7,9 @@ node_modules/
 .kilo/
 coverage/
 *.tsbuildinfo
+.codex-run-*
+.codex-vite-cache/
+.codex-vite.config.ts
 server/data/*.sqlite
 server/data/*.sqlite-shm
 server/data/*.sqlite-wal

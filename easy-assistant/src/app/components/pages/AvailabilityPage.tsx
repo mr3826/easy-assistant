@@ -6,12 +6,20 @@ import { Checkbox } from '../ui/checkbox';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useAuth } from '../../context/AuthContext';
-import { buildBusinessHourSeed, fetchBusinessHours, mergeBusinessHours, type TenantScope } from '../../api';
+import { useI18n } from '../../i18n';
+import {
+  buildBusinessHourSeed,
+  fetchBusinessHours,
+  mergeBusinessHours,
+  replaceBusinessHours,
+  type TenantScope,
+} from '../../api';
+import type { Weekday } from '../../types';
 
 const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
 interface DayHours {
-  weekday: number;
+  weekday: Weekday;
   active: boolean;
   openTime: string;
   closeTime: string;
@@ -20,7 +28,7 @@ interface DayHours {
 function normalizeHours(hours: DayHours[]) {
   const map = new Map(hours.map((entry) => [entry.weekday, entry]));
   return weekDays.map((_, index) => {
-    const weekday = index === 6 ? 0 : index + 1;
+    const weekday = (index === 6 ? 0 : index + 1) as Weekday;
     return map.get(weekday) ?? {
       weekday,
       active: weekday !== 0,
@@ -32,8 +40,10 @@ function normalizeHours(hours: DayHours[]) {
 
 export default function AvailabilityPage() {
   const { session } = useAuth();
+  const { t } = useI18n();
   const [hours, setHours] = useState<DayHours[]>(normalizeHours(buildBusinessHourSeed().map((entry) => ({ ...entry }))));
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
 
@@ -75,7 +85,7 @@ export default function AvailabilityPage() {
 
         setHours(normalizeHours(buildBusinessHourSeed().map((entry) => ({ ...entry }))));
         setIsLive(false);
-        setActionStatus('Live business-hours data is not available yet, so the local fallback is visible.');
+        setActionStatus(t('availability.standardHours'));
       } finally {
         if (active) {
           setLoading(false);
@@ -100,34 +110,77 @@ export default function AvailabilityPage() {
         closeTime: firstActive?.closeTime ?? entry.closeTime,
       }))
     );
-    setActionStatus('Copied the current working-day hours locally.');
+    setActionStatus(t('availability.copied'));
   };
 
-  const saveChanges = () => {
-    setActionStatus('Availability changes are staged locally only until the backend PUT endpoint lands.');
+  const saveChanges = async () => {
+    const invalidDay = hours.find((day) => day.active && day.openTime >= day.closeTime);
+    if (invalidDay) {
+      const dayKey = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'][
+        invalidDay.weekday === 0 ? 6 : invalidDay.weekday - 1
+      ];
+      setActionStatus(t('availability.invalidHour', { day: t(`availability.${dayKey}`) }));
+      return;
+    }
+
+    if (!scope) {
+      setActionStatus(t('availability.signInMissing'));
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const updatedHours = await replaceBusinessHours(
+        scope,
+        hours.map((day) => ({
+          weekday: day.weekday,
+          active: day.active,
+          openTime: day.openTime,
+          closeTime: day.closeTime,
+        }))
+      );
+      setHours(normalizeHours(mergeBusinessHours(scope, updatedHours).map((entry) => ({ ...entry }))));
+      setIsLive(true);
+      setActionStatus(t('availability.hoursSaved'));
+    } catch {
+      setActionStatus(t('availability.liveHoursUnavailable'));
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const dayLabels = [
+    t('availability.monday'),
+    t('availability.tuesday'),
+    t('availability.wednesday'),
+    t('availability.thursday'),
+    t('availability.friday'),
+    t('availability.saturday'),
+    t('availability.sunday'),
+  ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1>Availability Settings</h1>
-        <p className="text-gray-500">Configure your business hours and booking availability</p>
+        <h1>{t('availability.title')}</h1>
+        <p className="text-gray-500">{t('availability.subtitle')}</p>
       </div>
       {actionStatus && (
         <p className="text-sm text-green-700" role="status" aria-live="polite">
           {actionStatus}
         </p>
       )}
-      {loading && <p className="text-sm text-gray-500">Loading availability from the current tenant...</p>}
-      {!isLive && !loading && <p className="text-xs text-gray-500">The save path is intentionally local-only for now, but the screen is reading live hours when available.</p>}
+      {loading && <p className="text-sm text-gray-500">{t('availability.loading')}</p>}
+      {!isLive && !loading && <p className="text-xs text-gray-500">{t('availability.defaultHours')}</p>}
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            <CardTitle>Business Hours</CardTitle>
-          </div>
-          <CardDescription>Set your operating hours for each day of the week</CardDescription>
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-emerald-600" />
+              <CardTitle>{t('availability.weeklySchedule')}</CardTitle>
+            </div>
+          <CardDescription>{t('availability.assistantUsesHours')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {hours.map((day) => (
@@ -143,7 +196,7 @@ export default function AvailabilityPage() {
                   }
                 />
                 <Label htmlFor={`weekday-${day.weekday}`} className="font-medium">
-                  {weekDays[day.weekday === 0 ? 6 : day.weekday - 1]}
+                  {dayLabels[day.weekday === 0 ? 6 : day.weekday - 1]}
                 </Label>
               </div>
               <Input
@@ -156,7 +209,7 @@ export default function AvailabilityPage() {
                 }
                 className="w-32 bg-white"
               />
-              <span className="text-gray-500">to</span>
+              <span className="text-gray-500">{t('common.to')}</span>
               <Input
                 type="time"
                 value={day.closeTime}
@@ -171,10 +224,10 @@ export default function AvailabilityPage() {
           ))}
           <div className="flex gap-3 pt-4">
             <Button variant="outline" onClick={applyToAll}>
-              Apply to All Days
+              {t('availability.applyToAllDays')}
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={saveChanges}>
-              Save Changes
+            <Button className="bg-slate-900 hover:bg-slate-800" onClick={() => void saveChanges()} disabled={saving}>
+              {saving ? t('common.saving') : t('availability.saveChanges')}
             </Button>
           </div>
         </CardContent>

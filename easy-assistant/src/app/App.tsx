@@ -12,10 +12,10 @@ import { LoadingFallback } from "./components/guards";
 import { AuthProvider } from "./context/AuthContext";
 import { ErrorBoundary } from "./components/error/ErrorBoundary";
 import DashboardLayout from "./components/layout/DashboardLayout";
+import { LanguageSwitcher, useI18n } from "./i18n";
 
 const LoginPage = lazy(() => import("./components/pages/LoginPage"));
 const SignupPage = lazy(() => import("./components/pages/SignupPage"));
-const OnboardingWizard = lazy(() => import("./components/pages/OnboardingWizard"));
 const DashboardHome = lazy(() => import("./components/pages/DashboardHome"));
 const AppointmentsPage = lazy(() => import("./components/pages/AppointmentsPage"));
 const ConversationsPage = lazy(() => import("./components/pages/ConversationsPage"));
@@ -29,16 +29,21 @@ const LegalPrivacyPage = lazy(() => import("./components/pages/LegalPrivacyPage"
 const LegalTermsPage = lazy(() => import("./components/pages/LegalTermsPage"));
 
 function PublicPageFrame({ children }: { children: ReactNode }): ReactElement {
+  const { t } = useI18n();
+
   return (
     <div className="relative min-h-screen">
+      <div className="fixed right-4 top-4 z-20">
+        <LanguageSwitcher />
+      </div>
       {children}
       <div className="fixed bottom-4 left-0 right-0 z-10 flex justify-center gap-3 text-xs text-gray-500">
         <Link to="/privacy" className="rounded bg-gray-50 px-1 hover:text-blue-600 hover:underline">
-          Privacy
+          {t("common.privacy")}
         </Link>
         <span aria-hidden="true">|</span>
         <Link to="/terms" className="rounded bg-gray-50 px-1 hover:text-blue-600 hover:underline">
-          Terms
+          {t("common.terms")}
         </Link>
       </div>
     </div>
@@ -118,6 +123,8 @@ function SettingsWithLayout(): ReactElement {
 }
 
 export default function App() {
+  const { t } = useI18n();
+
   return (
     <ErrorBoundary>
       <AuthProvider>
@@ -127,7 +134,7 @@ export default function App() {
             <Route
               path="/login"
               element={
-                <Suspense fallback={<LoadingFallback message="Loading..." />}>
+                <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
                   <PublicPageFrame>
                     <LoginPage />
                   </PublicPageFrame>
@@ -137,7 +144,7 @@ export default function App() {
             <Route
               path="/signup"
               element={
-                <Suspense fallback={<LoadingFallback message="Loading..." />}>
+                <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
                   <PublicPageFrame>
                     <SignupPage />
                   </PublicPageFrame>
@@ -147,7 +154,7 @@ export default function App() {
             <Route
               path="/privacy"
               element={
-                <Suspense fallback={<LoadingFallback message="Loading..." />}>
+                <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
                   <LegalPrivacyPage />
                 </Suspense>
               }
@@ -155,7 +162,7 @@ export default function App() {
             <Route
               path="/terms"
               element={
-                <Suspense fallback={<LoadingFallback message="Loading..." />}>
+                <Suspense fallback={<LoadingFallback message={t("common.loading")} />}>
                   <LegalTermsPage />
                 </Suspense>
               }
@@ -163,9 +170,9 @@ export default function App() {
             <Route
               path="/onboarding"
               element={
-                <Suspense fallback={<LoadingFallback message="Loading..." />}>
-                  <OnboardingWizard />
-                </Suspense>
+                <AuthGuard>
+                  <Navigate to="/dashboard" replace />
+                </AuthGuard>
               }
             />
             <Route
@@ -239,14 +246,6 @@ export default function App() {
               }
             />
             <Route
-              path="/marketing"
-              element={
-                <AuthGuard>
-                  <Navigate to="/dashboard" replace />
-                </AuthGuard>
-              }
-            />
-            <Route
               path="/ai-settings"
               element={
                 <AuthGuard>
@@ -257,36 +256,20 @@ export default function App() {
               }
             />
             <Route
-              path="/billing"
-              element={
-                <AuthGuard>
-                  <Navigate to="/dashboard" replace />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/analytics"
-              element={
-                <AuthGuard>
-                  <Navigate to="/dashboard" replace />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/support"
-              element={
-                <AuthGuard>
-                  <Navigate to="/dashboard" replace />
-                </AuthGuard>
-              }
-            />
-            <Route
               path="/settings"
               element={
                 <AuthGuard>
                   <Suspense fallback={<LoadingFallback />}>
                     <SettingsWithLayout />
                   </Suspense>
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <AuthGuard>
+                  <Navigate to="/dashboard" replace />
                 </AuthGuard>
               }
             />

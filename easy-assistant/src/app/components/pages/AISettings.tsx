@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, Bot, Languages, MessageSquare, RefreshCw, Save, Undo2, type LucideIcon } from 'lucide-react';
+import { Bell, Bot, CalendarCheck, Languages, MessageSquare, PlayCircle, RefreshCw, Save, ShieldCheck, Undo2, type LucideIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -9,9 +9,11 @@ import { Separator } from '../ui/separator';
 import { Switch } from '../ui/switch';
 import { Textarea } from '../ui/textarea';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../i18n';
 import { LoadingFallback } from '../guards';
 import { fetchAiSettings, updateAiSettings, type TenantScope } from '../../api';
 import type { AiSettings } from '../../types';
+import { DEMO_BUSINESS_NAME } from '../../config/demoData';
 
 type AiSettingsDraft = Pick<
   AiSettings,
@@ -35,8 +37,8 @@ const DEFAULT_AI_SETTINGS: AiSettingsDraft = {
   assistantName: 'Easy Assistant',
   tone: 'friendly',
   defaultLanguage: 'en',
-  greetingMessage: "Hi! I'm your booking assistant. How can I help you today?",
-  humanHandoffMessage: 'Thanks. A human team member will take it from here.',
+  greetingMessage: `Hi! This is ${DEMO_BUSINESS_NAME}. I can help you choose a service and book a time.`,
+  humanHandoffMessage: 'Thanks. A team member will take it from here and reply shortly.',
   autoConfirmBookings: true,
   reminderEnabled: false,
 };
@@ -69,9 +71,9 @@ function draftsMatch(left: AiSettingsDraft, right: AiSettingsDraft) {
   );
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatDateTime(value: string | null | undefined, fallback: string) {
   if (!value) {
-    return 'Not saved yet';
+    return fallback;
   }
 
   const parsed = new Date(value);
@@ -127,6 +129,7 @@ function SummaryCard({
 
 export default function AISettings() {
   const { session, isLoading } = useAuth();
+  const { t } = useI18n();
   const scope = useMemo<TenantScope | null>(() => {
     if (!session?.organization?.id || !session?.location?.id) {
       return null;
@@ -145,6 +148,7 @@ export default function AISettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
+  const [testMessage, setTestMessage] = useState('Hi, can I book bridal makeup for Friday afternoon?');
 
   const loadSettings = async (nextScope: TenantScope | null = scope) => {
     if (!nextScope) {
@@ -153,7 +157,7 @@ export default function AISettings() {
       setLastSavedAt(null);
       setFeedback({
         tone: 'info',
-        text: 'Sign in to edit AI settings.',
+        text: t('assistant.signInToSetReplies'),
       });
       setLoading(false);
       setHydrated(true);
@@ -169,12 +173,12 @@ export default function AISettings() {
       setLastSavedAt(settings?.updatedAt ?? null);
       setFeedback({
         tone: 'success',
-        text: settings ? 'Loaded AI settings from the server.' : 'Loaded default AI settings.',
+        text: settings ? t('assistant.assistantRepliesLoaded') : t('assistant.defaultRepliesLoaded'),
       });
     } catch (error) {
       setFeedback({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Unable to load AI settings.',
+        text: error instanceof Error ? error.message : t('assistant.unableToLoad'),
       });
     } finally {
       setLoading(false);
@@ -188,28 +192,32 @@ export default function AISettings() {
   }, [scope]);
 
   if (isLoading) {
-    return <LoadingFallback message="Loading AI settings..." />;
+    return <LoadingFallback message={t('common.loadingAssistant')} />;
   }
 
   if (!scope) {
     return (
       <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
-        <p className="text-sm text-gray-600">Sign in to edit AI settings.</p>
+        <p className="text-sm text-gray-600">{t('assistant.signInToSetReplies')}</p>
       </div>
     );
   }
 
   if (!hydrated) {
-    return <LoadingFallback message="Loading AI settings..." />;
+    return <LoadingFallback message={t('common.loadingAssistant')} />;
   }
 
   const isDirty = !draftsMatch(formDraft, serverDraft);
+  const testResponse =
+    testMessage.trim().length === 0
+      ? t('assistant.typeToPreview')
+      : `${formDraft.greetingMessage}\n\n${t('assistant.previewPrompt')}`;
 
   const handleReset = () => {
     setFormDraft(cloneDraft(serverDraft));
     setFeedback({
       tone: 'info',
-      text: 'Unsaved changes were discarded.',
+      text: t('assistant.discardChanges'),
     });
   };
 
@@ -231,12 +239,12 @@ export default function AISettings() {
       setLastSavedAt(updated.updatedAt);
       setFeedback({
         tone: 'success',
-        text: 'AI settings saved.',
+        text: t('assistant.assistantRepliesSaved'),
       });
     } catch (error) {
       setFeedback({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Unable to save AI settings.',
+        text: error instanceof Error ? error.message : t('assistant.unableToSave'),
       });
     } finally {
       setSaving(false);
@@ -247,8 +255,8 @@ export default function AISettings() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h1>AI Settings</h1>
-          <p className="text-gray-500">Configure the receptionist behavior used for WhatsApp bookings.</p>
+          <h1>{t('assistant.title')}</h1>
+          <p className="text-gray-500">{t('assistant.subtitle')}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -257,22 +265,22 @@ export default function AISettings() {
             size="sm"
             onClick={() => void loadSettings()}
             disabled={loading || saving}
-            title="Reload settings from the server"
-            aria-label="Reload AI settings"
+            title={t('assistant.reload')}
+            aria-label={t('assistant.reload')}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Reload
+            {t('assistant.reload')}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleReset}
             disabled={!isDirty || saving}
-            title="Discard unsaved changes"
-            aria-label="Discard AI settings changes"
+            title={t('assistant.discardChanges')}
+            aria-label={t('assistant.discardChanges')}
           >
             <Undo2 className="mr-2 h-4 w-4" />
-            Reset
+            {t('assistant.reset')}
           </Button>
         </div>
       </div>
@@ -290,30 +298,59 @@ export default function AISettings() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <SummaryCard
-          label="Assistant"
-          value={formDraft.assistantName}
-          description="Name used in AI replies"
+          label={t('assistant.status')}
+          value={isDirty ? t('assistant.unsaved') : t('assistant.ready')}
+          description={t('assistant.saveBeforeCustomersSee')}
           icon={Bot}
         />
         <SummaryCard
-          label="Tone"
-          value={formDraft.tone}
-          description="Current conversation style"
-          icon={MessageSquare}
+          label={t('assistant.lastSaved')}
+          value={formatDateTime(lastSavedAt, t('assistant.notSavedYet'))}
+          description={t('assistant.savedRepliesLoaded')}
+          icon={CalendarCheck}
         />
         <SummaryCard
-          label="Language"
-          value={formDraft.defaultLanguage}
-          description="Default assistant language"
-          icon={Languages}
+          label={t('assistant.humanHandoff')}
+          value={t('common.on')}
+          description={t('settings.owner')}
+          icon={ShieldCheck}
         />
         <SummaryCard
-          label="Reminder"
-          value={formDraft.reminderEnabled ? 'Enabled' : 'Disabled'}
-          description={formatDateTime(lastSavedAt)}
+          label={t('assistant.reminders')}
+          value={formDraft.reminderEnabled ? t('common.enabled') : t('common.disabled')}
+          description={t('assistant.bookingRulesDescription')}
           icon={Bell}
         />
       </div>
+
+      <Card>
+        <CardHeader>
+            <div className="flex items-center gap-2">
+              <PlayCircle className="h-5 w-5 text-emerald-600" />
+              <CardTitle>{t('assistant.testAssistant')}</CardTitle>
+            </div>
+          <CardDescription>{t('assistant.previewPrompt')}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="test-message">{t('assistant.customerMessage')}</Label>
+            <Textarea
+              id="test-message"
+              rows={5}
+              value={testMessage}
+              onChange={(event) => setTestMessage(event.target.value)}
+              className="bg-white resize-none"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t('assistant.preview')}</Label>
+            <div className="min-h-[132px] rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 whitespace-pre-wrap">
+              {testResponse}
+            </div>
+            <p className="text-xs text-gray-500">{t('assistant.previewOnly')}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <form
         className="space-y-6"
@@ -326,14 +363,14 @@ export default function AISettings() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-blue-600" />
-              <CardTitle>Conversation</CardTitle>
+              <CardTitle>{t('assistant.replyStyle')}</CardTitle>
             </div>
-            <CardDescription>Greeting text and tone controls for the receptionist.</CardDescription>
+            <CardDescription>{t('assistant.replyStyleDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="assistant-name">Assistant name</Label>
+                <Label htmlFor="assistant-name">{t('assistant.assistantName')}</Label>
                 <Input
                   id="assistant-name"
                   value={formDraft.assistantName}
@@ -348,7 +385,7 @@ export default function AISettings() {
               </div>
 
               <div className="space-y-2">
-                <Label>Tone</Label>
+                <Label>{t('assistant.tone')}</Label>
                 <Select
                   value={formDraft.tone}
                   onValueChange={(value) =>
@@ -362,32 +399,38 @@ export default function AISettings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="friendly">Friendly</SelectItem>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="formal">Formal</SelectItem>
+                    <SelectItem value="friendly">{t('assistant.friendly')}</SelectItem>
+                    <SelectItem value="professional">{t('assistant.professional')}</SelectItem>
+                    <SelectItem value="formal">{t('assistant.formal')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="default-language">Default language</Label>
-                <Input
-                  id="default-language"
+                <Label htmlFor="default-language">{t('assistant.defaultLanguage')}</Label>
+                <Select
                   value={formDraft.defaultLanguage}
-                  onChange={(event) =>
+                  onValueChange={(value) =>
                     setFormDraft((current) => ({
                       ...current,
-                      defaultLanguage: event.target.value,
+                      defaultLanguage: value,
                     }))
                   }
-                  placeholder="en"
-                  className="bg-white"
-                />
+                >
+                  <SelectTrigger id="default-language" className="bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">{t('assistant.english')}</SelectItem>
+                    <SelectItem value="bn">{t('assistant.bangla')}</SelectItem>
+                    <SelectItem value="en-bn">{t('assistant.englishBangla')}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="greeting-message">Greeting message</Label>
+              <Label htmlFor="greeting-message">{t('assistant.greetingMessage')}</Label>
               <Textarea
                 id="greeting-message"
                 rows={4}
@@ -406,17 +449,17 @@ export default function AISettings() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-blue-600" />
-              <CardTitle>Automation</CardTitle>
+              <CardTitle>{t('assistant.bookingRules')}</CardTitle>
             </div>
-            <CardDescription>Booking confirmation and reminder behavior.</CardDescription>
+            <CardDescription>{t('assistant.bookingRulesDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-0.5">
-                <Label htmlFor="auto-confirm">Auto-confirm bookings</Label>
-                <p className="text-sm text-gray-500">Confirm bookings automatically when the slot is valid.</p>
+                <Label htmlFor="auto-confirm">{t('assistant.autoConfirmBookings')}</Label>
+                <p className="text-sm text-gray-500">{t('assistant.autoConfirmBookingsDescription')}</p>
               </div>
               <Switch
                 id="auto-confirm"
@@ -434,8 +477,8 @@ export default function AISettings() {
 
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-0.5">
-                <Label htmlFor="reminders">Reminder enabled</Label>
-                <p className="text-sm text-gray-500">Enable reminder scheduling for confirmed appointments.</p>
+                <Label htmlFor="reminders">{t('assistant.sendBookingReminders')}</Label>
+                <p className="text-sm text-gray-500">{t('assistant.sendBookingRemindersDescription')}</p>
               </div>
               <Switch
                 id="reminders"
@@ -453,15 +496,15 @@ export default function AISettings() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Languages className="h-5 w-5 text-blue-600" />
-              <CardTitle>Handoff</CardTitle>
-            </div>
-            <CardDescription>Message sent when the assistant should step back.</CardDescription>
+              <div className="flex items-center gap-2">
+                <Languages className="h-5 w-5 text-blue-600" />
+              <CardTitle>{t('assistant.fallbackAndHandoff')}</CardTitle>
+              </div>
+            <CardDescription>{t('assistant.fallbackAndHandoffDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="handoff-message">Human handoff message</Label>
+              <Label htmlFor="handoff-message">{t('assistant.humanHandoffMessage')}</Label>
               <Textarea
                 id="handoff-message"
                 rows={4}
@@ -477,15 +520,15 @@ export default function AISettings() {
             </div>
 
             <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-3">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Last saved</p>
-              <p className="mt-1 text-sm font-medium text-gray-900">{formatDateTime(lastSavedAt)}</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">{t('assistant.lastSaved')}</p>
+              <p className="mt-1 text-sm font-medium text-gray-900">{formatDateTime(lastSavedAt, t('assistant.notSavedYet'))}</p>
             </div>
           </CardContent>
         </Card>
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" type="button" onClick={handleReset} disabled={!isDirty || saving}>
-            Reset
+            {t('assistant.reset')}
           </Button>
           <Button
             type="submit"
@@ -493,7 +536,7 @@ export default function AISettings() {
             disabled={!isDirty || loading || saving}
           >
             <Save className="mr-2 h-4 w-4" />
-            Save settings
+            {t('assistant.saveAssistant')}
           </Button>
         </div>
       </form>

@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import DashboardLayout from '../app/components/layout/DashboardLayout';
 import AuthGuard from '../app/components/guards/AuthGuard';
 import { AuthProvider } from '../app/context/AuthContext';
+import { I18nProvider } from '../app/i18n';
 import { getByTestId, getByText, render, waitFor } from './test-utils';
 
 function LocationProbe() {
@@ -40,39 +41,41 @@ describe('DashboardLayout', () => {
 
   it('logs out and returns to login from the user menu', async () => {
     const { container } = render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <Routes>
-            <Route
-              path="/login"
-              element={
-                <>
-                  <h1>Login</h1>
-                  <LocationProbe />
-                </>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <AuthGuard>
-                  <DashboardLayout>
-                    <h1>Private dashboard</h1>
-                  </DashboardLayout>
-                </AuthGuard>
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </AuthProvider>,
+      <I18nProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <Routes>
+              <Route
+                path="/login"
+                element={
+                  <>
+                    <h1>Login</h1>
+                    <LocationProbe />
+                  </>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <AuthGuard>
+                    <DashboardLayout>
+                      <h1>Private dashboard</h1>
+                    </DashboardLayout>
+                  </AuthGuard>
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </I18nProvider>,
     );
 
     await waitFor(() => {
-      expect(getByText(container, 'John Doe')).toBeInTheDocument();
+      expect(getByText(container, 'Owner')).toBeInTheDocument();
     });
 
     const accountButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('John Doe'),
+      button.textContent?.includes('Owner'),
     );
 
     if (!accountButton) {

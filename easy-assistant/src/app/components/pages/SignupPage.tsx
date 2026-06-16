@@ -8,10 +8,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api';
+import { useI18n } from '../../i18n';
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const { signup } = useAuth();
+  const { t } = useI18n();
+  const businessCategories = [
+    { value: 'doctor', label: t('auth.categoryDoctor') },
+    { value: 'hotel', label: t('auth.categoryHotel') },
+    { value: 'salon', label: t('auth.categorySalon') },
+    { value: 'spa', label: t('auth.categorySpa') },
+    { value: 'fitness', label: t('auth.categoryFitness') },
+    { value: 'restaurant', label: t('auth.categoryRestaurant') },
+    { value: 'consulting', label: t('auth.categoryConsulting') },
+    { value: 'other', label: t('auth.categoryOther') },
+  ] as const;
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,7 +46,7 @@ export default function SignupPage() {
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setFormError('Passwords do not match.');
+      setFormError(t('auth.passwordsDoNotMatch'));
       return;
     }
 
@@ -58,13 +70,13 @@ export default function SignupPage() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
       });
 
-      const nextPath = session.nextRoute ?? (session.requiresOnboarding === false ? '/dashboard' : '/onboarding');
+      const nextPath = session.nextRoute ?? '/dashboard';
       navigate(nextPath, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        setFormError('An account with this email already exists.');
+        setFormError(t('auth.emailExists'));
       } else {
-        setFormError('Unable to create your account right now.');
+        setFormError(t('auth.unableToCreate'));
       }
     } finally {
       setIsSubmitting(false);
@@ -81,9 +93,9 @@ export default function SignupPage() {
             </div>
           </div>
           <div>
-            <CardTitle>Create Your Account</CardTitle>
+            <CardTitle>{t('auth.createYourAccount')}</CardTitle>
             <CardDescription>
-              Step {step} of 2 - {step === 1 ? 'Business Information' : 'Account Security'}
+              {t('auth.stepOfTwo', { step, section: step === 1 ? t('auth.businessInformation') : t('auth.accountSecurity') })}
             </CardDescription>
           </div>
         </CardHeader>
@@ -93,31 +105,31 @@ export default function SignupPage() {
             {step === 1 ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="businessName">Business Name</Label>
+                  <Label htmlFor="businessName">{t('auth.businessName')}</Label>
                   <Input
                     id="businessName"
                     value={formData.businessName}
                     onChange={(e) => updateFormData('businessName', e.target.value)}
-                    placeholder="Your Business Name"
+                    placeholder={t('auth.businessNamePlaceholder')}
                     required
                     className="bg-white"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="ownerName">Owner Name</Label>
+                  <Label htmlFor="ownerName">{t('auth.ownerName')}</Label>
                   <Input
                     id="ownerName"
                     value={formData.ownerName}
                     onChange={(e) => updateFormData('ownerName', e.target.value)}
-                    placeholder="Your Full Name"
+                    placeholder={t('auth.ownerNamePlaceholder')}
                     required
                     className="bg-white"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email">{t('auth.emailAddress')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -130,33 +142,30 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone">{t('auth.phoneNumber')}</Label>
                   <Input
                     id="phone"
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => updateFormData('phone', e.target.value)}
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="+880 17XX XXXXXX"
                     required
                     className="bg-white"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Business Category</Label>
+                  <Label htmlFor="category">{t('auth.businessCategory')}</Label>
                   <Select value={formData.category} onValueChange={(value: string) => updateFormData('category', value)}>
                     <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={t('auth.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="doctor">Doctor / Medical</SelectItem>
-                      <SelectItem value="hotel">Hotel / Hospitality</SelectItem>
-                      <SelectItem value="salon">Salon / Beauty</SelectItem>
-                      <SelectItem value="spa">Spa / Wellness</SelectItem>
-                      <SelectItem value="fitness">Fitness / Gym</SelectItem>
-                      <SelectItem value="restaurant">Restaurant</SelectItem>
-                      <SelectItem value="consulting">Consulting</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      {businessCategories.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -164,7 +173,7 @@ export default function SignupPage() {
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('auth.password')}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -174,11 +183,11 @@ export default function SignupPage() {
                     required
                     className="bg-white"
                   />
-                  <p className="text-xs text-gray-500">Must be at least 8 characters</p>
+                  <p className="text-xs text-gray-500">{t('auth.passwordMin')}</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
@@ -192,7 +201,7 @@ export default function SignupPage() {
 
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-gray-700">
-                    By creating an account, you agree to our Terms of Service and Privacy Policy.
+                    {t('auth.termsConsent')}
                   </p>
                 </div>
               </>
@@ -209,19 +218,19 @@ export default function SignupPage() {
                   className="flex-1"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
+                  {t('common.back')}
                 </Button>
               )}
               <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
                 {step === 1 ? (
                   <>
-                    Next
+                    {t('auth.next')}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 ) : isSubmitting ? (
-                  'Creating Account...'
+                  t('auth.creatingAccount')
                 ) : (
-                  'Create Account'
+                  t('auth.createAccount')
                 )}
               </Button>
             </div>
@@ -229,9 +238,9 @@ export default function SignupPage() {
             {formError && <p className="text-sm text-red-500">{formError}</p>}
             
             <p className="text-center text-gray-600">
-              Already have an account?{' '}
+              {t('auth.alreadyHaveAccount')}{' '}
               <Link to="/login" className="text-blue-600 hover:underline">
-                Sign in
+                {t('common.signIn')}
               </Link>
             </p>
           </CardFooter>

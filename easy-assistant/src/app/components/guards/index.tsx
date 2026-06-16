@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { cn } from "../../components/ui/utils";
 import { useAuth } from "../../context/AuthContext";
+import { useI18n } from "../../i18n";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -17,15 +18,17 @@ export interface LoadingFallbackProps {
 }
 
 export function LoadingFallback({ message }: LoadingFallbackProps) {
+  const { t } = useI18n();
+  const resolvedMessage = message ?? t('common.loading');
   return (
     <div
       className={cn("flex items-center justify-center min-h-[400px]", "bg-gray-50 rounded-lg")}
       role="status"
-      aria-label="Loading"
+      aria-label={resolvedMessage}
     >
       <div className="flex flex-col items-center gap-4">
         <div className={cn("w-8 h-8 border-4 border-blue-600", "border-t-transparent rounded-full", "animate-spin")} />
-        {message && <p className="text-sm text-gray-500">{message}</p>}
+        {resolvedMessage && <p className="text-sm text-gray-500">{resolvedMessage}</p>}
       </div>
     </div>
   );
@@ -39,10 +42,6 @@ export const PROTECTED_ROUTES: string[] = [
   "/services",
   "/availability",
   "/channels",
-  "/marketing",
   "/ai-settings",
-  "/billing",
-  "/analytics",
-  "/support",
   "/settings",
 ];

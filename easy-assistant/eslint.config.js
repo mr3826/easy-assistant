@@ -6,7 +6,7 @@ import reactPlugin from 'eslint-plugin-react';
 
 export default [
   {
-    ignores: ['**/dist/**', '**/build/**', '**/coverage/**', '**/node_modules/**'],
+    ignores: ['**/dist/**', '**/build/**', '**/coverage/**', '**/node_modules/**', '**/.codex-vite-cache/**'],
   },
   {
     files: ['**/*.{js,jsx,ts,tsx}'],

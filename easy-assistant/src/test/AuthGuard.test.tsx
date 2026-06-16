@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import AuthGuard from '../app/components/guards/AuthGuard';
 import { AuthProvider } from '../app/context/AuthContext';
+import { I18nProvider } from '../app/i18n';
 import { getByTestId, getByText, queryByText, render, waitFor } from './test-utils';
 
 function LocationProbe() {
@@ -25,29 +26,31 @@ describe('AuthGuard', () => {
     authApiState.session = null;
 
     const { container } = render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <Routes>
-            <Route
-              path="/login"
-              element={
-                <>
-                  <h1>Login</h1>
-                  <LocationProbe />
-                </>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <AuthGuard>
-                  <h1>Private dashboard</h1>
-                </AuthGuard>
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </AuthProvider>,
+      <I18nProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <Routes>
+              <Route
+                path="/login"
+                element={
+                  <>
+                    <h1>Login</h1>
+                    <LocationProbe />
+                  </>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <AuthGuard>
+                    <h1>Private dashboard</h1>
+                  </AuthGuard>
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </I18nProvider>,
     );
 
     await waitFor(() => {
@@ -61,20 +64,22 @@ describe('AuthGuard', () => {
     authApiState.session = createAuthSession();
 
     const { container } = render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <Routes>
-            <Route
-              path="/dashboard"
-              element={
-                <AuthGuard>
-                  <h1>Private dashboard</h1>
-                </AuthGuard>
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </AuthProvider>,
+      <I18nProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <Routes>
+              <Route
+                path="/dashboard"
+                element={
+                  <AuthGuard>
+                    <h1>Private dashboard</h1>
+                  </AuthGuard>
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </I18nProvider>,
     );
 
     await waitFor(() => {

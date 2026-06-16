@@ -9,14 +9,11 @@ import {
   Clock, 
   Share2, 
   Bot, 
-  Settings, 
-  Search, 
-  Bell, 
   ChevronDown,
   Menu,
   X
 } from 'lucide-react';
-import { Input } from '../ui/input';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
@@ -28,31 +25,32 @@ import {
 } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAuth } from '../../context/AuthContext';
+import { LanguageSwitcher, useI18n } from '../../i18n';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
-  { icon: Calendar, label: 'Appointments', path: '/appointments' },
-  { icon: Briefcase, label: 'Services', path: '/services' },
-  { icon: Users, label: 'Staff', path: '/staff' },
-  { icon: Clock, label: 'Availability', path: '/availability' },
-  { icon: Share2, label: 'Channels', path: '/channels' },
-  { icon: Bot, label: 'AI Settings', path: '/ai-settings' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+const menuItems: Array<{ icon: LucideIcon; labelKey: string; path: string }> = [
+  { icon: LayoutDashboard, labelKey: 'nav.home', path: '/dashboard' },
+  { icon: Calendar, labelKey: 'nav.bookings', path: '/appointments' },
+  { icon: MessageSquare, labelKey: 'nav.chats', path: '/conversations' },
+  { icon: Briefcase, labelKey: 'nav.services', path: '/services' },
+  { icon: Users, labelKey: 'nav.team', path: '/staff' },
+  { icon: Clock, labelKey: 'nav.hours', path: '/availability' },
+  { icon: Share2, labelKey: 'nav.whatsapp', path: '/channels' },
+  { icon: Bot, labelKey: 'nav.assistant', path: '/ai-settings' },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, session } = useAuth();
+  const { t } = useI18n();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const user = session?.user ?? null;
-  const userLabel = user?.name?.trim() || user?.email?.trim() || 'Account';
-  const userInitials = getInitials(user?.name || user?.email || 'Account');
+  const userLabel = user?.name?.trim() || user?.email?.trim() || t('common.account');
+  const userInitials = getInitials(user?.name || user?.email || t('common.account'));
 
   const handleLogout = () => {
     void logout();
@@ -79,16 +77,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Logo */}
           <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-gray-900">Easy Assistant</span>
+              <span className="font-semibold text-gray-900">{t('app.title')}</span>
             </div>
             <Button
               variant="ghost"
               size="sm"
               className="lg:hidden"
               onClick={() => setSidebarOpen(false)}
+              aria-label={t('common.closeSidebar')}
             >
               <X className="w-5 h-5" />
             </Button>
@@ -108,14 +107,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     className={`
                       flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
                       ${isActive 
-                        ? 'bg-blue-50 text-blue-600' 
+                        ? 'bg-emerald-50 text-emerald-700' 
                         : 'text-gray-700 hover:bg-gray-100'
                       }
                     `}
                     onClick={() => setSidebarOpen(false)}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                   </Link>
                 );
               })}
@@ -125,11 +124,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center justify-center gap-3 text-xs text-gray-500">
               <Link to="/privacy" className="hover:text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>
-                Privacy
+                {t('common.privacy')}
               </Link>
               <span aria-hidden="true">|</span>
               <Link to="/terms" className="hover:text-blue-600 hover:underline" onClick={() => setSidebarOpen(false)}>
-                Terms
+                {t('common.terms')}
               </Link>
             </div>
           </div>
@@ -141,56 +140,42 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Top Bar */}
         <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-30">
           <div className="h-full px-4 lg:px-6 flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 className="lg:hidden"
                 onClick={() => setSidebarOpen(true)}
+                aria-label={t('common.openSidebar')}
               >
                 <Menu className="w-5 h-5" />
               </Button>
-              
-              <div className="relative w-full max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search..."
-                  className="pl-10 bg-gray-50 border-gray-200"
-                />
-              </div>
+
+              <p className="hidden text-sm font-medium text-gray-700 sm:block">
+                {t('dashboard.subtitle')}
+              </p>
             </div>
 
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                aria-label="Notifications"
-                title="Notifications"
-                onClick={() => {}}
-              >
-                <Bell className="w-5 h-5" />
-              </Button>
-
+              <LanguageSwitcher />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2">
+                  <Button variant="ghost" className="flex items-center gap-2" aria-label={t('common.accountMenu')}>
                     <Avatar className="w-8 h-8">
                       <AvatarImage src="" />
-                      <AvatarFallback className="bg-blue-600 text-white">{userInitials}</AvatarFallback>
+                      <AvatarFallback className="bg-slate-900 text-white">{userInitials}</AvatarFallback>
                     </Avatar>
                     <span className="hidden md:inline">{userLabel}</span>
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('nav.myAccount')}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Profile</DropdownMenuItem>
-                  <DropdownMenuItem>Settings</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate('/settings')}>{t('common.account')}</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={handleLogout}>
-                    Logout
+                    {t('common.logout')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -9,6 +9,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../i18n';
 import {
   createStaff,
   deleteStaff,
@@ -47,54 +48,41 @@ interface StaffDraft {
 const fallbackSeed: StaffCard[] = [
   {
     id: 'seed-staff-1',
-    name: 'Emily Chen',
+    name: 'Nusrat Akter',
     roleTitle: 'Senior Stylist',
-    email: 'emily@bookingai.com',
-    phone: '+1 (555) 123-4567',
+    email: 'nusrat@glowbeauty.example',
+    phone: '+8801712345678',
     avatarUrl: '',
-    hours: 'Mon-Fri, 9:00 AM - 6:00 PM',
-    services: ['Haircut', 'Coloring', 'Styling'],
+    hours: 'Sat-Thu, 10:00 AM - 8:00 PM',
+    services: ['Haircut', 'Hair color', 'Styling'],
     availability: 'Available',
-    bookings: 124,
+    bookings: 42,
     active: true,
   },
   {
     id: 'seed-staff-2',
-    name: 'Dr. Michael Smith',
-    roleTitle: 'Medical Consultant',
-    email: 'msmith@bookingai.com',
-    phone: '+1 (555) 234-5678',
+    name: 'Farhana Rahman',
+    roleTitle: 'Beauty Therapist',
+    email: 'farhana@glowbeauty.example',
+    phone: '+8801811122233',
     avatarUrl: '',
-    hours: 'Mon-Thu, 8:00 AM - 5:00 PM',
-    services: ['General Consultation', 'Follow-ups'],
+    hours: 'Sat-Thu, 11:00 AM - 7:00 PM',
+    services: ['Facial', 'Spa treatment', 'Manicure'],
     availability: 'Busy',
-    bookings: 89,
+    bookings: 37,
     active: true,
   },
   {
     id: 'seed-staff-3',
-    name: 'Lisa Brown',
-    roleTitle: 'Spa Therapist',
-    email: 'lisa@bookingai.com',
-    phone: '+1 (555) 345-6789',
+    name: 'Maliha Chowdhury',
+    roleTitle: 'Makeup Artist',
+    email: 'maliha@glowbeauty.example',
+    phone: '+8801912345000',
     avatarUrl: '',
-    hours: 'Tue-Sat, 10:00 AM - 7:00 PM',
-    services: ['Spa Treatment', 'Aromatherapy', 'Body Massage'],
+    hours: 'Fri-Sat, 9:00 AM - 9:00 PM',
+    services: ['Bridal makeup', 'Party makeup'],
     availability: 'Available',
-    bookings: 156,
-    active: true,
-  },
-  {
-    id: 'seed-staff-4',
-    name: 'Mark Wilson',
-    roleTitle: 'Massage Therapist',
-    email: 'mark@bookingai.com',
-    phone: '+1 (555) 456-7890',
-    avatarUrl: '',
-    hours: 'Mon-Sat, 9:00 AM - 8:00 PM',
-    services: ['Deep Tissue', 'Swedish Massage', 'Sports Massage'],
-    availability: 'Available',
-    bookings: 201,
+    bookings: 28,
     active: true,
   },
 ];
@@ -107,16 +95,37 @@ function mapAvailability(active: boolean, bookings: number): StaffCard['availabi
   return bookings > 3 ? 'Busy' : 'Available';
 }
 
-function formatHours(hours: StaffHour[]) {
-  if (hours.length === 0) {
-    return 'Schedule not configured';
+function availabilityLabel(status: StaffCard['availability'], t: (path: string) => string) {
+  switch (status) {
+    case 'Busy':
+      return t('staff.busy');
+    case 'Inactive':
+      return t('staff.inactive');
+    default:
+      return t('staff.available');
   }
+}
+
+function formatHours(hours: StaffHour[], t: (path: string) => string) {
+  if (hours.length === 0) {
+    return t('staff.scheduleNotConfigured');
+  }
+
+  const dayLabels = [
+    t('availability.sunday'),
+    t('availability.monday'),
+    t('availability.tuesday'),
+    t('availability.wednesday'),
+    t('availability.thursday'),
+    t('availability.friday'),
+    t('availability.saturday'),
+  ];
 
   return hours
     .slice()
     .sort((left, right) => left.weekday - right.weekday)
     .map((hour) => {
-      const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][hour.weekday];
+      const day = dayLabels[hour.weekday] ?? String(hour.weekday);
       return `${day}, ${hour.startTime} - ${hour.endTime}`;
     })
     .join(' • ');
@@ -155,6 +164,7 @@ function buildDraft(staff?: StaffCard | null): StaffDraft {
 
 export default function StaffManagement() {
   const { session } = useAuth();
+  const { t } = useI18n();
   const [staff, setStaff] = useState<StaffCard[]>(fallbackSeed);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
@@ -200,7 +210,7 @@ export default function StaffManagement() {
       if (staffResult.status !== 'fulfilled') {
         setStaff(fallbackSeed);
         setIsLive(false);
-        setActionStatus('Live staff data is not available yet, so this screen is showing the local fallback snapshot.');
+        setActionStatus(t('staff.liveStaffUnavailable'));
         setLoading(false);
         return;
       }
@@ -213,7 +223,7 @@ export default function StaffManagement() {
       const staffCards = await Promise.all(
         staffRows.map(async (member) => {
           const memberHoursResult = await fetchStaffHours(scope, member.id).catch(() => []);
-          const hoursText = formatHours(memberHoursResult);
+          const hoursText = formatHours(memberHoursResult, t);
           const servicesText = mapStaffServicesFromAppointments(member.id, appointmentRows, serviceById);
           const bookings = appointmentRows.filter((appointment) => appointment.staffId === member.id).length;
           return mapStaffCard(member, hoursText, servicesText, bookings);
@@ -228,9 +238,9 @@ export default function StaffManagement() {
       setIsLive(true);
 
       if (staffCards.length === 0) {
-        setActionStatus('No staff records exist yet for this tenant.');
+        setActionStatus(t('staff.noStaffYet'));
       } else if (appointmentsResult.status !== 'fulfilled' || servicesResult.status !== 'fulfilled') {
-        setActionStatus('Staff records loaded, but related appointment/service links are still partial.');
+        setActionStatus(t('staff.partialLinks'));
       }
 
       setLoading(false);
@@ -241,7 +251,7 @@ export default function StaffManagement() {
     return () => {
       active = false;
     };
-  }, [scope]);
+  }, [scope, t]);
 
   const stats = useMemo(() => {
     const total = staff.length;
@@ -265,7 +275,7 @@ export default function StaffManagement() {
 
   const saveStaff = async () => {
     if (!scope) {
-      setActionStatus('Tenant scope is missing, so staff edits cannot be saved yet.');
+      setActionStatus(t('staff.tenantScopeMissing'));
       return;
     }
 
@@ -278,7 +288,7 @@ export default function StaffManagement() {
     };
 
     if (!payload.name) {
-      setActionStatus('Staff name is required.');
+      setActionStatus(t('staff.memberNameRequired'));
       return;
     }
 
@@ -294,7 +304,7 @@ export default function StaffManagement() {
                 ? {
                     ...member,
                     name: response.name,
-                    roleTitle: response.roleTitle ?? 'Team Member',
+                    roleTitle: response.roleTitle ?? t('staff.teamMember'),
                     email: response.email ?? '',
                     phone: response.phone ?? '',
                     avatarUrl: response.avatarUrl ?? '',
@@ -305,12 +315,12 @@ export default function StaffManagement() {
             )
           );
         }
-        setActionStatus('Staff member updated through the API.');
+        setActionStatus(t('staff.memberUpdated'));
       } else {
         const response = await createStaff(scope, payload);
         if (response) {
           setStaff((current) => [
-            mapStaffCard(response, 'Schedule not configured', [], 0),
+            mapStaffCard(response, t('staff.scheduleNotConfigured'), [], 0),
             ...current,
           ]);
         } else {
@@ -318,11 +328,11 @@ export default function StaffManagement() {
             {
               id: `local-${Date.now()}`,
               name: payload.name,
-              roleTitle: payload.roleTitle ?? 'Team Member',
+              roleTitle: payload.roleTitle ?? t('staff.teamMember'),
               email: payload.email ?? '',
               phone: payload.phone ?? '',
               avatarUrl: '',
-              hours: 'Schedule not configured',
+              hours: t('staff.scheduleNotConfigured'),
               services: [],
               availability: 'Available',
               bookings: 0,
@@ -331,7 +341,7 @@ export default function StaffManagement() {
             ...current,
           ]);
         }
-        setActionStatus('Staff member created through the API.');
+        setActionStatus(t('staff.memberAdded'));
       }
 
       setStaffDialogOpen(false);
@@ -343,7 +353,7 @@ export default function StaffManagement() {
               ? {
                   ...member,
                   ...payload,
-                  roleTitle: payload.roleTitle ?? 'Team Member',
+                  roleTitle: payload.roleTitle ?? t('staff.teamMember'),
                   email: payload.email ?? '',
                   phone: payload.phone ?? '',
                   active: payload.active,
@@ -357,11 +367,11 @@ export default function StaffManagement() {
           {
             id: `local-${Date.now()}`,
             name: payload.name,
-            roleTitle: payload.roleTitle ?? 'Team Member',
+            roleTitle: payload.roleTitle ?? t('staff.teamMember'),
             email: payload.email ?? '',
             phone: payload.phone ?? '',
             avatarUrl: '',
-            hours: 'Schedule not configured',
+            hours: t('staff.scheduleNotConfigured'),
             services: [],
             availability: 'Available',
             bookings: 0,
@@ -370,7 +380,7 @@ export default function StaffManagement() {
           ...current,
         ];
       });
-      setActionStatus('Saved locally only because the backend mutation is not ready yet.');
+      setActionStatus(t('staff.savedLocallyOnly'));
       setStaffDialogOpen(false);
     } finally {
       setSaving(false);
@@ -379,11 +389,11 @@ export default function StaffManagement() {
 
   const removeStaff = async (member: StaffCard) => {
     if (!scope) {
-      setActionStatus('Tenant scope is missing, so delete remains local-only.');
+      setActionStatus(t('staff.tenantScopeMissing'));
       return;
     }
 
-    const confirmed = window.confirm(`Delete ${member.name}?`);
+    const confirmed = window.confirm(t('staff.deleteConfirm', { name: member.name }));
     if (!confirmed) {
       return;
     }
@@ -391,10 +401,10 @@ export default function StaffManagement() {
     try {
       await deleteStaff(scope, member.id);
       setStaff((current) => current.filter((item) => item.id !== member.id));
-      setActionStatus(`${member.name} deleted through the API.`);
+      setActionStatus(t('staff.deletedThroughApi', { name: member.name }));
     } catch {
       setStaff((current) => current.filter((item) => item.id !== member.id));
-      setActionStatus(`${member.name} removed locally only.`);
+      setActionStatus(t('staff.removedLocallyOnly', { name: member.name }));
     }
   };
 
@@ -402,13 +412,13 @@ export default function StaffManagement() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1>Staff Management</h1>
-          <p className="text-gray-500">Manage your team members and their schedules</p>
+          <h1>{t('staff.title')}</h1>
+          <p className="text-gray-500">{t('staff.subtitle')}</p>
         </div>
 
         <Button className="bg-blue-600 hover:bg-blue-700" onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Staff
+          {t('staff.addTeamMember')}
         </Button>
       </div>
 
@@ -417,13 +427,13 @@ export default function StaffManagement() {
           {actionStatus}
         </p>
       )}
-      {loading && <p className="text-sm text-gray-500">Loading staff from the current tenant...</p>}
-      {!isLive && !loading && <p className="text-xs text-gray-500">Live API data is not available yet, so the fallback roster is still visible.</p>}
+      {loading && <p className="text-sm text-gray-500">{t('staff.loading')}</p>}
+      {!isLive && !loading && <p className="text-xs text-gray-500">{t('staff.demoNote')}</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Total Staff</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('staff.teamMembers')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -431,7 +441,7 @@ export default function StaffManagement() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Available Now</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('staff.availableNow')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.availableNow}</div>
@@ -439,7 +449,7 @@ export default function StaffManagement() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Total Bookings</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('staff.totalBookings')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalBookings}</div>
@@ -447,7 +457,7 @@ export default function StaffManagement() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Avg. per Staff</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('staff.avgPerMember')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgPerStaff}</div>
@@ -463,7 +473,7 @@ export default function StaffManagement() {
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
                     <AvatarImage src={member.avatarUrl} />
-                    <AvatarFallback className="bg-blue-600 text-white">
+                    <AvatarFallback className="bg-slate-900 text-white">
                       {member.name
                         .split(' ')
                         .map((token) => token[0])
@@ -477,7 +487,7 @@ export default function StaffManagement() {
                       variant={member.availability === 'Available' ? 'default' : 'secondary'}
                       className={member.availability === 'Available' ? 'mt-2 bg-green-100 text-green-700' : 'mt-2 bg-yellow-100 text-yellow-700'}
                     >
-                      {member.availability}
+                      {availabilityLabel(member.availability, t)}
                     </Badge>
                   </div>
                 </div>
@@ -486,7 +496,7 @@ export default function StaffManagement() {
                     variant="ghost"
                     size="sm"
                     onClick={() => openEditDialog(member)}
-                    aria-label={`Edit ${member.name}`}
+                    aria-label={`${t('common.edit')} ${member.name}`}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -494,7 +504,7 @@ export default function StaffManagement() {
                     variant="ghost"
                     size="sm"
                     onClick={() => void removeStaff(member)}
-                    aria-label={`Delete ${member.name}`}
+                    aria-label={`${t('common.delete')} ${member.name}`}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -505,11 +515,11 @@ export default function StaffManagement() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Mail className="h-4 w-4" />
-                  <span>{member.email || 'No email on file'}</span>
+                  <span>{member.email || t('staff.noEmail')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Phone className="h-4 w-4" />
-                  <span>{member.phone || 'No phone on file'}</span>
+                  <span>{member.phone || t('staff.noPhone')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Clock className="h-4 w-4" />
@@ -518,7 +528,7 @@ export default function StaffManagement() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm text-gray-600">Services:</p>
+                <p className="mb-2 text-sm text-gray-600">{t('staff.services')}</p>
                 <div className="flex flex-wrap gap-2">
                   {member.services.length > 0 ? (
                     member.services.map((service) => (
@@ -527,14 +537,14 @@ export default function StaffManagement() {
                       </Badge>
                     ))
                   ) : (
-                    <Badge variant="outline">Linked service data pending</Badge>
+                  <Badge variant="outline">{t('staff.noServices')}</Badge>
                   )}
                 </div>
               </div>
 
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Total Bookings</span>
+              <span className="text-sm text-gray-600">{t('staff.totalBookings')}</span>
                   <span className="font-semibold">{member.bookings}</span>
                 </div>
               </div>
@@ -543,16 +553,16 @@ export default function StaffManagement() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setActionStatus(`${member.name}'s schedule is being read from the API-backed roster.`)}
+                  onClick={() => setActionStatus(`${member.name} ${t('staff.viewSchedule')}`)}
                 >
-                  View Schedule
+                  {t('staff.viewSchedule')}
                 </Button>
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setActionStatus(`${member.name}'s hours are editable through the staff record.`)}
+                  onClick={() => setActionStatus(`${member.name} ${t('staff.editHours')}`)}
                 >
-                  Edit Hours
+                  {t('staff.editHours')}
                 </Button>
               </div>
             </CardContent>
@@ -563,72 +573,72 @@ export default function StaffManagement() {
       <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingStaffId ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
+            <DialogTitle>{editingStaffId ? t('staff.editTeamMember') : t('staff.addTeamMemberDialog')}</DialogTitle>
             <DialogDescription>
-              {editingStaffId ? 'Update the staff record and save it back to the API.' : 'Create a new team member for the current tenant.'}
+              {editingStaffId ? t('staff.updateMemberDescription') : t('staff.addMemberDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="staff-name">Full Name</Label>
+              <Label htmlFor="staff-name">{t('staff.fullName')}</Label>
               <Input
                 id="staff-name"
                 value={draft.name}
                 onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Enter name"
+                placeholder="e.g., Nusrat Akter"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff-role">Role</Label>
+              <Label htmlFor="staff-role">{t('staff.role')}</Label>
               <Input
                 id="staff-role"
                 value={draft.roleTitle}
                 onChange={(event) => setDraft((current) => ({ ...current, roleTitle: event.target.value }))}
-                placeholder="Senior Stylist"
+                placeholder={t('staff.teamMember')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff-email">Email</Label>
+              <Label htmlFor="staff-email">{t('staff.email')}</Label>
               <Input
                 id="staff-email"
                 type="email"
                 value={draft.email}
                 onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
-                placeholder="email@example.com"
+                placeholder="name@business.com"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="staff-phone">Phone</Label>
+              <Label htmlFor="staff-phone">{t('staff.phone')}</Label>
               <Input
                 id="staff-phone"
                 type="tel"
                 value={draft.phone}
                 onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))}
-                placeholder="+1 (555) 000-0000"
+                placeholder="+8801XXXXXXXXX"
               />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>{t('staff.status')}</Label>
               <Select
                 value={draft.active ? 'active' : 'inactive'}
                 onValueChange={(value) => setDraft((current) => ({ ...current, active: value === 'active' }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder={t('staff.selectStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">{t('staff.active')}</SelectItem>
+                  <SelectItem value="inactive">{t('staff.inactive')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline">{t('common.cancel')}</Button>
             </DialogClose>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => void saveStaff()} disabled={saving}>
-              {saving ? 'Saving...' : editingStaffId ? 'Save Changes' : 'Add Staff Member'}
+            <Button className="bg-slate-900 hover:bg-slate-800" onClick={() => void saveStaff()} disabled={saving}>
+              {saving ? t('staff.saving') : editingStaffId ? t('staff.saveChanges') : t('staff.addMemberAction')}
             </Button>
           </DialogFooter>
         </DialogContent>

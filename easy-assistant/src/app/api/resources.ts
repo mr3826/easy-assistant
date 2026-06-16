@@ -672,6 +672,20 @@ export async function fetchBusinessHours(scope: TenantScope) {
   return requestCollection<BusinessHour>('/api/availability/business-hours', scope, {}, ['items', 'businessHours', 'hours', 'data']);
 }
 
+export async function replaceBusinessHours(
+  scope: TenantScope,
+  hours: Array<Pick<BusinessHour, 'weekday' | 'openTime' | 'closeTime' | 'active'>>
+) {
+  const response = await apiRequest<unknown>('/api/availability/business-hours', {
+    method: 'PUT',
+    body: {
+      ...scope,
+      hours,
+    },
+  });
+  return readCollection<BusinessHour>(response, ['items', 'businessHours', 'hours', 'data']);
+}
+
 export async function fetchStaffHours(scope: TenantScope, staffId: string) {
   return requestCollection<StaffHour>(formatPath('/api/availability/staff-hours/:staffId', { staffId }), scope, {}, [
     'items',
