@@ -149,6 +149,7 @@ type TranslationTree = {
     goLiveChecklist: string;
     goLiveChecklistDescription: string;
     setupProgress: string;
+    setupCouldNotLoad: string;
     connectWhatsApp: string;
     testAssistant: string;
     assistantTitle: string;
@@ -226,6 +227,8 @@ type TranslationTree = {
     saveFailed: string;
     cancelledThroughApi: string;
     cancelFailed: string;
+    cancelConfirm: string;
+    missingSetup: string;
     selectCustomer: string;
     selectService: string;
     selectStaff: string;
@@ -322,6 +325,10 @@ type TranslationTree = {
     savedThroughApi: string;
     savedLocallyOnly: string;
     saveFailed: string;
+    archiveService: string;
+    archiveConfirm: string;
+    archivedThroughApi: string;
+    archiveFailed: string;
     deleteConfirm: string;
     deletedThroughApi: string;
     removedLocallyOnly: string;
@@ -368,12 +375,20 @@ type TranslationTree = {
     editHours: string;
     scheduleNotConfigured: string;
     memberNameRequired: string;
+    emailInvalid: string;
+    phoneInvalid: string;
+    assignServices: string;
+    addServicesFirst: string;
     teamMember: string;
     memberAdded: string;
     memberUpdated: string;
     savedThroughApi: string;
     savedLocallyOnly: string;
     saveFailed: string;
+    archive: string;
+    archiveConfirm: string;
+    archivedThroughApi: string;
+    archiveFailed: string;
     tenantScopeMissing: string;
     deleteConfirm: string;
     deletedThroughApi: string;
@@ -405,6 +420,9 @@ type TranslationTree = {
     invalidHour: string;
     signInMissing: string;
     copied: string;
+    previewTitle: string;
+    previewDescription: string;
+    previewEmpty: string;
     monday: string;
     tuesday: string;
     wednesday: string;
@@ -681,6 +699,7 @@ export const translations: Record<Locale, TranslationTree> = {
       goLiveChecklist: 'Go-live checklist',
       goLiveChecklistDescription: 'Only the steps needed before customers can book from WhatsApp.',
       setupProgress: '{completed}/{total} done',
+      setupCouldNotLoad: 'Some setup checks could not load. Refresh before going live.',
       connectWhatsApp: 'Connect WhatsApp',
       testAssistant: 'Test assistant',
       assistantTitle: 'Assistant',
@@ -758,6 +777,8 @@ export const translations: Record<Locale, TranslationTree> = {
       saveFailed: 'Booking could not be saved. Nothing was changed.',
       cancelledThroughApi: 'Booking cancelled.',
       cancelFailed: 'Booking could not be cancelled. Nothing was changed.',
+      cancelConfirm: 'Cancel this booking?',
+      missingSetup: 'Add at least one customer, active service, and active staff member before creating a booking.',
       selectCustomer: 'Select customer',
       selectService: 'Select service',
       selectStaff: 'Select staff member',
@@ -854,6 +875,10 @@ export const translations: Record<Locale, TranslationTree> = {
       savedThroughApi: 'Service saved.',
       savedLocallyOnly: 'Saved locally only.',
       saveFailed: 'Service could not be saved. Nothing was changed.',
+      archiveService: 'Archive service',
+      archiveConfirm: 'Archive {name}? Existing booking history stays available.',
+      archivedThroughApi: 'Archived {name}.',
+      archiveFailed: 'Could not archive {name}. Nothing was changed.',
       deleteConfirm: 'Delete {name}? This cannot be undone.',
       deletedThroughApi: 'Deleted {name}.',
       removedLocallyOnly: 'Removed {name} locally.',
@@ -900,12 +925,20 @@ export const translations: Record<Locale, TranslationTree> = {
       editHours: 'Edit Hours',
       scheduleNotConfigured: 'Schedule not configured',
       memberNameRequired: 'Member name is required.',
+      emailInvalid: 'Enter a valid email address.',
+      phoneInvalid: 'Enter a valid phone number.',
+      assignServices: 'Assigned services',
+      addServicesFirst: 'Add an active service before assigning services to this team member.',
       teamMember: 'Team Member',
       memberAdded: 'Team member added.',
       memberUpdated: 'Team member updated.',
       savedThroughApi: 'Team member saved.',
       savedLocallyOnly: 'Saved locally only.',
       saveFailed: 'Team member could not be saved. Nothing was changed.',
+      archive: 'Archive',
+      archiveConfirm: 'Archive {name}? They will stop appearing as available for new bookings.',
+      archivedThroughApi: 'Archived {name}.',
+      archiveFailed: 'Could not archive {name}. Nothing was changed.',
       tenantScopeMissing: 'Sign in first so this location can be saved.',
       deleteConfirm: 'Delete {name}? This cannot be undone.',
       deletedThroughApi: 'Deleted {name}.',
@@ -937,6 +970,9 @@ export const translations: Record<Locale, TranslationTree> = {
       invalidHour: '{day} closing time must be after opening time.',
       signInMissing: 'Sign in context is missing tenant scope, so working hours cannot be saved yet.',
       copied: 'Copied these hours to every working day.',
+      previewTitle: 'Customer booking preview',
+      previewDescription: 'These are the days and hours the assistant can offer to customers.',
+      previewEmpty: 'No active booking hours are set.',
       monday: 'Monday',
       tuesday: 'Tuesday',
       wednesday: 'Wednesday',
@@ -1211,6 +1247,7 @@ export const translations: Record<Locale, TranslationTree> = {
       goLiveChecklist: 'লাইভে যাওয়ার চেকলিস্ট',
       goLiveChecklistDescription: 'গ্রাহকরা WhatsApp থেকে বুক করার আগে শুধু এই ধাপগুলোই দরকার।',
       setupProgress: '{completed}/{total} সম্পন্ন',
+      setupCouldNotLoad: 'কিছু সেটআপ চেক লোড হয়নি। লাইভে যাওয়ার আগে রিফ্রেশ করুন।',
       connectWhatsApp: 'WhatsApp কানেক্ট করুন',
       testAssistant: 'অ্যাসিস্ট্যান্ট টেস্ট করুন',
       assistantTitle: 'অ্যাসিস্ট্যান্ট',
@@ -1288,6 +1325,8 @@ export const translations: Record<Locale, TranslationTree> = {
       saveFailed: 'বুকিং সেভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
       cancelledThroughApi: 'বুকিং বাতিল হয়েছে।',
       cancelFailed: 'বুকিং বাতিল করা যায়নি। কোনো পরিবর্তন হয়নি।',
+      cancelConfirm: 'এই বুকিং বাতিল করবেন?',
+      missingSetup: 'বুকিং তৈরির আগে অন্তত একজন গ্রাহক, একটি সক্রিয় সার্ভিস, এবং একজন সক্রিয় স্টাফ যোগ করুন।',
       selectCustomer: 'গ্রাহক নির্বাচন করুন',
       selectService: 'সার্ভিস নির্বাচন করুন',
       selectStaff: 'স্টাফ নির্বাচন করুন',
@@ -1384,6 +1423,10 @@ export const translations: Record<Locale, TranslationTree> = {
       savedThroughApi: 'সার্ভিস সেভ হয়েছে।',
       savedLocallyOnly: 'শুধু লোকালি সেভ হয়েছে।',
       saveFailed: 'সার্ভিস সেভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
+      archiveService: 'সার্ভিস আর্কাইভ করুন',
+      archiveConfirm: '{name} আর্কাইভ করবেন? পুরোনো বুকিং হিস্টরি থাকবে।',
+      archivedThroughApi: '{name} আর্কাইভ করা হয়েছে।',
+      archiveFailed: '{name} আর্কাইভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
       deleteConfirm: '{name} মুছবেন? এটা আর ফেরত আনা যাবে না।',
       deletedThroughApi: '{name} মুছে ফেলা হয়েছে।',
       removedLocallyOnly: '{name} লোকালি মুছে ফেলা হয়েছে।',
@@ -1430,12 +1473,20 @@ export const translations: Record<Locale, TranslationTree> = {
       editHours: 'সময়সূচি এডিট করুন',
       scheduleNotConfigured: 'সময়সূচি সেট করা হয়নি',
       memberNameRequired: 'সদস্যের নাম প্রয়োজন।',
+      emailInvalid: 'সঠিক ইমেইল ঠিকানা লিখুন।',
+      phoneInvalid: 'সঠিক ফোন নম্বর লিখুন।',
+      assignServices: 'নির্ধারিত সার্ভিস',
+      addServicesFirst: 'এই টিম মেম্বারকে সার্ভিস দেওয়ার আগে একটি সক্রিয় সার্ভিস যোগ করুন।',
       teamMember: 'টিম সদস্য',
       memberAdded: 'টিম সদস্য যোগ করা হয়েছে।',
       memberUpdated: 'টিম সদস্য আপডেট হয়েছে।',
       savedThroughApi: 'টিম সদস্য সেভ হয়েছে।',
       savedLocallyOnly: 'শুধু লোকালি সেভ হয়েছে।',
       saveFailed: 'টিম সদস্য সেভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
+      archive: 'আর্কাইভ',
+      archiveConfirm: '{name} আর্কাইভ করবেন? নতুন বুকিংয়ের জন্য আর উপলভ্য দেখাবে না।',
+      archivedThroughApi: '{name} আর্কাইভ করা হয়েছে।',
+      archiveFailed: '{name} আর্কাইভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
       tenantScopeMissing: 'এই লোকেশন সেভ করতে আগে সাইন ইন করুন।',
       deleteConfirm: '{name} মুছবেন? এটা আর ফেরত আনা যাবে না।',
       deletedThroughApi: '{name} মুছে ফেলা হয়েছে।',
@@ -1467,6 +1518,9 @@ export const translations: Record<Locale, TranslationTree> = {
       invalidHour: '{day} এর বন্ধের সময় খোলার সময়ের পরে হতে হবে।',
       signInMissing: 'টেন্যান্ট scope না থাকায় এখন কাজের সময় সেভ করা যাচ্ছে না।',
       copied: 'এই সময়গুলো সব কার্যদিবসে কপি করা হয়েছে।',
+      previewTitle: 'গ্রাহকের বুকিং প্রিভিউ',
+      previewDescription: 'অ্যাসিস্ট্যান্ট গ্রাহককে এই দিন ও সময়গুলো অফার করতে পারবে।',
+      previewEmpty: 'কোনো সক্রিয় বুকিং সময় সেট করা নেই।',
       monday: 'সোমবার',
       tuesday: 'মঙ্গলবার',
       wednesday: 'বুধবার',

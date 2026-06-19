@@ -10,14 +10,40 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { fetchDashboardSummary, type DashboardSummaryMetric, type TenantScope } from '../../api';
+import {
+  fetchAiSettings,
+  fetchBusinessHours,
+  fetchChannels,
+  fetchDashboardSummary,
+  fetchServices,
+  fetchStaff,
+  type DashboardSummaryMetric,
+  type TenantScope,
+} from '../../api';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { LoadingFallback } from '../guards';
-import { DEMO_SETUP_ITEMS } from '../../config/demoData';
 import { useI18n } from '../../i18n';
+
+interface SetupChecklistState {
+  businessDetails: boolean;
+  service: boolean;
+  hours: boolean;
+  teamMember: boolean;
+  connectWhatsApp: boolean;
+  testAssistant: boolean;
+}
+
+const EMPTY_SETUP_CHECKLIST: SetupChecklistState = {
+  businessDetails: false,
+  service: false,
+  hours: false,
+  teamMember: false,
+  connectWhatsApp: false,
+  testAssistant: false,
+};
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
@@ -69,10 +95,24 @@ function findMetric(metrics: DashboardSummaryMetric[], patterns: string[]) {
   });
 }
 
-function SetupChecklist() {
+function SetupChecklist({
+  checklist,
+  setupError,
+}: {
+  checklist: SetupChecklistState;
+  setupError: string;
+}) {
   const { t } = useI18n();
-  const completed = DEMO_SETUP_ITEMS.filter((item) => item.done).length;
-  const total = DEMO_SETUP_ITEMS.length;
+  const items = [
+    { labelKey: 'setup.businessDetails', done: checklist.businessDetails, to: '/settings' },
+    { labelKey: 'setup.service', done: checklist.service, to: '/services' },
+    { labelKey: 'setup.hours', done: checklist.hours, to: '/availability' },
+    { labelKey: 'setup.teamMember', done: checklist.teamMember, to: '/staff' },
+    { labelKey: 'setup.connectWhatsApp', done: checklist.connectWhatsApp, to: '/channels' },
+    { labelKey: 'setup.testAssistant', done: checklist.testAssistant, to: '/ai-settings' },
+  ];
+  const completed = items.filter((item) => item.done).length;
+  const total = items.length;
   const progress = Math.round((completed / total) * 100);
 
   return (
@@ -90,12 +130,13 @@ function SetupChecklist() {
         <div className="h-2 overflow-hidden rounded-full bg-gray-100">
           <div className="h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} />
         </div>
+        {setupError && <p className="text-sm text-amber-700">{setupError}</p>}
         <div className="grid gap-2 sm:grid-cols-2">
-          {DEMO_SETUP_ITEMS.map((item) => (
-            <div key={item.labelKey} className="flex items-center gap-2 text-sm">
+          {items.map((item) => (
+            <Link key={item.labelKey} to={item.to} className="flex items-center gap-2 text-sm">
               <CheckCircle2 className={`h-4 w-4 ${item.done ? 'text-emerald-600' : 'text-gray-300'}`} />
               <span className={item.done ? 'text-gray-700' : 'text-gray-500'}>{t(item.labelKey)}</span>
-            </div>
+            </Link>
           ))}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -188,6 +229,51 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [setupChecklist, setSetupChecklist] = useState<SetupChecklistState>(EMPTY_SETUP_CHECKLIST);
+  const [setupError, setSetupError] = useState('');
+
+  const loadSetupChecklist = async (nextScope: TenantScope | null = scope) => {
+    if (!nextScope) {
+      setSetupChecklist(EMPTY_SETUP_CHECKLIST);
+      setSetupError('');
+      return;
+    }
+
+    const [servicesResult, staffResult, hoursResult, channelsResult, aiSettingsResult] = await Promise.allSettled([
+      fetchServices(nextScope),
+      fetchStaff(nextScope),
+      fetchBusinessHours(nextScope),
+      fetchChannels(nextScope),
+      fetchAiSettings(nextScope),
+    ]);
+
+    const organizationName = session?.organization?.name?.trim();
+    const location = session?.location;
+    const hasLocationDetails = Boolean(
+      location?.phone?.trim() || location?.addressLine1?.trim() || location?.city?.trim() || location?.name?.trim()
+    );
+    const services = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
+    const staff = staffResult.status === 'fulfilled' ? staffResult.value : [];
+    const hours = hoursResult.status === 'fulfilled' ? hoursResult.value : [];
+    const channels = channelsResult.status === 'fulfilled' ? channelsResult.value : [];
+    const aiSettings = aiSettingsResult.status === 'fulfilled' ? aiSettingsResult.value : null;
+
+    setSetupChecklist({
+      businessDetails: Boolean(organizationName && hasLocationDetails),
+      service: services.some((service) => service.active),
+      hours: hours.some((hour) => hour.active),
+      teamMember: staff.some((member) => member.active),
+      connectWhatsApp: channels.some(
+        (channel) => channel.type === 'whatsapp' && channel.active && Boolean(channel.displayPhoneNumber?.trim())
+      ),
+      testAssistant: Boolean(aiSettings?.greetingMessage?.trim()),
+    });
+
+    const partialFailure = [servicesResult, staffResult, hoursResult, channelsResult, aiSettingsResult].some(
+      (result) => result.status === 'rejected'
+    );
+    setSetupError(partialFailure ? t('dashboard.setupCouldNotLoad') : '');
+  };
 
   const loadSummary = async (nextScope: TenantScope | null = scope, showSpinner = false) => {
     if (!nextScope) {
@@ -217,6 +303,10 @@ export default function DashboardHome() {
     }
   };
 
+  const loadDashboard = async (nextScope: TenantScope | null = scope, showSpinner = false) => {
+    await Promise.all([loadSummary(nextScope, showSpinner), loadSetupChecklist(nextScope)]);
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -225,7 +315,7 @@ export default function DashboardHome() {
         return;
       }
 
-      await loadSummary(scope, true);
+      await loadDashboard(scope, true);
     };
 
     void run();
@@ -294,7 +384,7 @@ export default function DashboardHome() {
           )}
         </div>
 
-        <Button variant="outline" size="sm" onClick={() => void loadSummary(scope, true)} disabled={loading || refreshing}>
+        <Button variant="outline" size="sm" onClick={() => void loadDashboard(scope, true)} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? t('common.refreshing') : t('dashboard.refresh')}
         </Button>
@@ -303,7 +393,7 @@ export default function DashboardHome() {
       {error && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span role="alert">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadSummary(scope, true)} disabled={loading || refreshing}>
+          <Button variant="outline" size="sm" onClick={() => void loadDashboard(scope, true)} disabled={loading || refreshing}>
             {t('dashboard.retry')}
           </Button>
         </div>
@@ -337,7 +427,7 @@ export default function DashboardHome() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <SetupChecklist />
+        <SetupChecklist checklist={setupChecklist} setupError={setupError} />
         <AssistantStatusCard />
       </div>
 

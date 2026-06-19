@@ -365,6 +365,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     const staffServicesMatch = pathname.match(/^\/api\/staff\/([^/]+)\/services$/);
+    if (staffServicesMatch && method === 'GET') {
+      jsonResponse(res, 200, phase2.listStaffServices(scope, decodeURIComponent(staffServicesMatch[1])), requestOrigin);
+      return;
+    }
+
     if (staffServicesMatch && method === 'POST') {
       const body = await readJsonBody(req);
       jsonResponse(res, 201, phase2.assignStaffService(scope, decodeURIComponent(staffServicesMatch[1]), unwrapPayload(body, 'assignment')), requestOrigin);

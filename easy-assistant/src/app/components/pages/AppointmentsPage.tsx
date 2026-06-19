@@ -53,11 +53,37 @@ function buildDraft(appointment?: AppointmentCard | null, defaults?: { customerI
     customerId: defaults?.customerId ?? '',
     serviceId: defaults?.serviceId ?? '',
     staffId: defaults?.staffId ?? '',
-    date: appointment?.date ?? '2026-06-11',
+    date: appointment?.date ?? new Date().toISOString().slice(0, 10),
     time: appointment?.time ?? '10:00',
     status: appointment?.status ?? 'confirmed',
     notes: appointment?.notes ?? '',
   };
+}
+
+function formatDateInput(iso: string | null | undefined) {
+  if (!iso) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return iso.slice(0, 10);
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function formatTimeInput(iso: string | null | undefined) {
+  if (!iso) {
+    return '10:00';
+  }
+
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return '10:00';
+  }
+
+  return parsed.toTimeString().slice(0, 5);
 }
 
 function formatTimeLabel(iso: string) {
@@ -109,6 +135,8 @@ function appointmentStatusLabel(status: Appointment['status'], t: (path: string)
       return t('appointments.completed');
     case 'rescheduled':
       return t('appointments.rescheduled');
+    case 'no_show':
+      return t('appointments.noShow');
     default:
       return String(status).replace(/_/g, ' ');
   }
@@ -167,6 +195,9 @@ export default function AppointmentsPage() {
   const servicesById = useMemo(() => new Map(services.map((service) => [service.id, service])), [services]);
   const staffById = useMemo(() => new Map(staff.map((member) => [member.id, member])), [staff]);
   const customersById = useMemo(() => new Map(customers.map((customer) => [customer.id, customer])), [customers]);
+  const activeServices = useMemo(() => services.filter((service) => service.active), [services]);
+  const activeStaff = useMemo(() => staff.filter((member) => member.active), [staff]);
+  const canCreateBooking = isLive && customers.length > 0 && activeServices.length > 0 && activeStaff.length > 0;
 
   const appointmentCards = useMemo(() => {
     const liveCards = mapAppointments(appointments, servicesById, staffById, customersById, t);
@@ -240,11 +271,17 @@ export default function AppointmentsPage() {
   );
 
   const openCreateDialog = () => {
+    if (!canCreateBooking) {
+      setActionStatus(t('appointments.missingSetup'));
+      setActionTone('error');
+      return;
+    }
+
     setEditingAppointmentId(null);
     setDraft(buildDraft(null, {
       customerId: customers[0]?.id,
-      serviceId: services[0]?.id,
-      staffId: staff[0]?.id,
+      serviceId: activeServices[0]?.id,
+      staffId: activeStaff[0]?.id,
     }));
     setDialogOpen(true);
   };
@@ -255,10 +292,19 @@ export default function AppointmentsPage() {
     setDraft(
       buildDraft(appointment, {
         customerId: sourceAppointment?.customerId ?? customers[0]?.id,
-        serviceId: sourceAppointment?.serviceId ?? services[0]?.id,
-        staffId: sourceAppointment?.staffId ?? staff[0]?.id,
+        serviceId: sourceAppointment?.serviceId ?? activeServices[0]?.id,
+        staffId: sourceAppointment?.staffId ?? activeStaff[0]?.id,
       }),
     );
+    if (sourceAppointment) {
+      setDraft((current) => ({
+        ...current,
+        date: formatDateInput(sourceAppointment.startTime),
+        time: formatTimeInput(sourceAppointment.startTime),
+        status: sourceAppointment.status,
+        notes: sourceAppointment.notes ?? '',
+      }));
+    }
     setDialogOpen(true);
   };
 
@@ -276,6 +322,12 @@ export default function AppointmentsPage() {
 
     if (!draft.customerId || !draft.serviceId || !draft.staffId || Number.isNaN(start.getTime())) {
       setActionStatus(t('appointments.pickRequiredFields'));
+      setActionTone('error');
+      return;
+    }
+
+    if (!service) {
+      setActionStatus(t('appointments.serviceNotSelected'));
       setActionTone('error');
       return;
     }
@@ -331,6 +383,11 @@ export default function AppointmentsPage() {
       return;
     }
 
+    const confirmed = window.confirm(t('appointments.cancelConfirm'));
+    if (!confirmed) {
+      return;
+    }
+
     try {
       await updateAppointment(scope, appointmentId, { status: 'cancelled' });
       setAppointments((current) =>
@@ -352,7 +409,7 @@ export default function AppointmentsPage() {
           <p className="text-gray-500">{t('appointments.subtitle')}</p>
         </div>
 
-        <Button className="bg-blue-600 hover:bg-blue-700" onClick={openCreateDialog}>
+        <Button className="bg-blue-600 hover:bg-blue-700" onClick={openCreateDialog} disabled={!canCreateBooking}>
           <Plus className="mr-2 h-4 w-4" />
           {t('appointments.newBooking')}
         </Button>
@@ -396,6 +453,7 @@ export default function AppointmentsPage() {
                   <SelectItem value="cancelled">{t('appointments.cancelled')}</SelectItem>
                   <SelectItem value="completed">{t('appointments.completed')}</SelectItem>
                   <SelectItem value="rescheduled">{t('appointments.rescheduled')}</SelectItem>
+                  <SelectItem value="no_show">{t('appointments.noShow')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -408,8 +466,6 @@ export default function AppointmentsPage() {
         <TabsList>
           <TabsTrigger value="list">{t('appointments.list')}</TabsTrigger>
           <TabsTrigger value="day">{t('appointments.dayView')}</TabsTrigger>
-          <TabsTrigger value="week">{t('appointments.weekView')}</TabsTrigger>
-          <TabsTrigger value="month">{t('appointments.monthView')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-6">
@@ -480,7 +536,7 @@ export default function AppointmentsPage() {
                   {filteredAppointments.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={8} className="py-10 text-center text-sm text-gray-500">
-                        {t('appointments.noMatches')}
+                        {isLive && appointmentCards.length === 0 ? t('dashboard.noBookingsYet') : t('appointments.noMatches')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -536,7 +592,7 @@ export default function AppointmentsPage() {
                 ))}
                 {filteredAppointments.length === 0 && (
                   <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
-                    {t('appointments.addManualOrConnect')}
+                    {isLive && appointmentCards.length === 0 ? t('dashboard.noBookingsYet') : t('appointments.addManualOrConnect')}
                   </div>
                 )}
               </div>
@@ -576,21 +632,6 @@ export default function AppointmentsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="week" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="py-8 text-center text-gray-500">{t('appointments.weekSoon')}</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="month" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="py-8 text-center text-gray-500">{t('appointments.monthSoon')}</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -624,7 +665,7 @@ export default function AppointmentsPage() {
                   <SelectValue placeholder={t('appointments.selectService')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {services.map((service) => (
+                  {activeServices.map((service) => (
                     <SelectItem key={service.id} value={service.id}>
                       {service.name}
                     </SelectItem>
@@ -640,7 +681,7 @@ export default function AppointmentsPage() {
                   <SelectValue placeholder={t('appointments.selectStaff')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {staff.map((member) => (
+                  {activeStaff.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
                     </SelectItem>

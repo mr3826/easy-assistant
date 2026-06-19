@@ -1,6 +1,6 @@
 # MVP Status And Execution Plan
 
-Status date: 2026-06-11
+Status date: 2026-06-20
 Owner lane: integrated Codex execution wave with parallel Worker A/B/C lanes
 
 ## Current Read
@@ -15,15 +15,17 @@ Phase 6 has now landed in the repo as well: AI settings are persisted on the bac
 
 Phase 7 is also live now: reminders and dashboard aggregation are backed by real data and tests, so the launch story can stay centered on booking operations instead of placeholder analytics.
 
+Launch-readiness cleanup has narrowed the app around the first pilot market: WhatsApp-first booking operations for Bangladesh businesses. Redundant analytics and broad-channel surfaces are deferred, setup progress is now based on live account state, services/staff archive instead of destructive-looking deletes, staff-service assignment is persisted, and availability shows the customer-facing booking preview.
+
 ## Acceptance Criteria Status
 
 | Brief area | Status | Evidence in repo | Missing to reach MVP | Next phase |
 |---|---|---|---|---|
 | Signup, login, logout, sessions | Implemented | Backend server, SQLite session store, cookie auth, and API-backed frontend session handling | Production hardening: rate limiting, audit logging, and deployment wiring | Phase 1 complete |
 | Organization/location tenant model | Implemented | Signup now creates user, organization, location, membership, and session records together | Tenant-scoped CRUD for the rest of the MVP modules | Phase 1 complete |
-| Services CRUD | Partial | Services page exists | Persistent service model, CRUD API, validation, delete guard for active appointments | Phase 2 |
-| Staff CRUD and service assignment | Partial | Staff page exists | Persistent staff model, staff_services join, API, validation | Phase 2 |
-| Availability settings | Partial | Business-hours/staff-hours schema entries and route metadata exist | Persistent business/staff hours APIs, validation, and UI wiring | Phase 2 |
+| Services CRUD | Implemented | Services page is API-backed with validation and archive-safe deactivation | Add stronger appointment guardrails before broader rollout | Launch polish |
+| Staff CRUD and service assignment | Implemented | Staff page is API-backed and persists staff-service assignments | Add richer staff-hours editing when pilots need per-person schedules | Launch polish |
+| Availability settings | Implemented | Business hours load/save through the API and show a customer-facing preview | Holiday/exception support remains post-MVP | Launch polish |
 | Availability engine | Partial | `src/server/domain/scheduling.ts` generates slots using service duration, staff assignment, business/staff hours, timezone, buffers, and appointment conflicts | API route implementation, persistence, holiday/exception support, transactional booking integration | Phase 3 |
 | Appointment lifecycle | Partial | Appointments page exists; status helpers and route contract samples are in tests | Persistent appointments, statuses, create/cancel/reschedule/complete/no-show APIs | Phase 2 |
 | Conflict prevention | Partial | `src/server/domain/appointments.ts` detects blocking appointment overlaps by organization, location, and staff | Database transaction enforcement during create/reschedule | Phase 3 |
@@ -49,8 +51,8 @@ Phase 7 is also live now: reminders and dashboard aggregation are backed by real
 | Appointment conflict prevention | Covered at domain level | `src/test/scheduling-domain.test.ts` verifies overlap detection, non-blocking statuses, and tenant/location scoping. |
 | Conversation and message lifecycle | Covered at contract/runtime level | `src/test/backend-contracts.test.ts` and `src/test/backend-conversation-lifecycle.test.ts` verify conversation, channel, takeover, close, and message persistence paths. |
 | WhatsApp channel runtime | Covered at contract/runtime level | `src/test/backend-contracts.test.ts` and `src/test/backend-whatsapp.test.ts` verify WhatsApp channel patching, webhook verification, inbound ingest, consent updates, queued outbound replies, and opt-out blocking. |
-| Service CRUD | Missing | Add tests when persistent service API/domain exists. |
-| Staff CRUD | Missing | Add tests when persistent staff API/domain exists. |
+| Service CRUD | Partial | Backend/runtime coverage exists; add focused UI interaction coverage for archive and validation. |
+| Staff CRUD | Partial | Backend/runtime coverage exists; add focused UI interaction coverage for staff-service assignment. |
 | WhatsApp webhook handling | Missing | Add tests when webhook routes and signature validation exist. |
 | AI tool-call appointment creation | Covered at contract/runtime level | `src/test/backend-contracts.test.ts` and `src/test/backend-ai-receptionist.test.ts` verify the AI receptionist booking flow. |
 

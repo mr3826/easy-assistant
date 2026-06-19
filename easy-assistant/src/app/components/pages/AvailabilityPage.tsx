@@ -169,6 +169,13 @@ export default function AvailabilityPage() {
     t('availability.sunday'),
   ];
 
+  const activeHoursPreview = hours
+    .filter((day) => day.active)
+    .map((day) => ({
+      day: dayLabels[day.weekday === 0 ? 6 : day.weekday - 1],
+      range: `${day.openTime} ${t('common.to')} ${day.closeTime}`,
+    }));
+
   return (
     <div className="space-y-6">
       <div>
@@ -242,6 +249,24 @@ export default function AvailabilityPage() {
             <Button className="bg-slate-900 hover:bg-slate-800" onClick={() => void saveChanges()} disabled={saving}>
               {saving ? t('common.saving') : t('availability.saveChanges')}
             </Button>
+          </div>
+          <div className="rounded-md border border-gray-200 bg-white p-4">
+            <div className="mb-3">
+              <p className="font-medium text-gray-900">{t('availability.previewTitle')}</p>
+              <p className="text-sm text-gray-500">{t('availability.previewDescription')}</p>
+            </div>
+            {activeHoursPreview.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {activeHoursPreview.map((entry) => (
+                  <div key={entry.day} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm">
+                    <span className="font-medium text-gray-700">{entry.day}</span>
+                    <span className="text-gray-600">{entry.range}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">{t('availability.previewEmpty')}</p>
+            )}
           </div>
         </CardContent>
       </Card>

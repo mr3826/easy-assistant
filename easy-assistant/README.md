@@ -18,21 +18,21 @@
 
 ## Current MVP Surface
 
-Phase 7 is live in the repo: dashboard metrics now use real appointment/conversation data, and reminder scheduling plus delivery logging are part of the backend MVP surface.
+Current launch scope is WhatsApp-first booking operations for Bangladesh pilot businesses. The dashboard, booking pages, setup checklist, services, team assignments, availability, conversations, assistant settings, and legal pages are the supported MVP surface. Deferred modules remain out of primary navigation until they have real value for non-technical business owners.
 
 | Module | Description |
 |---|---|
-| **Dashboard** | Live operational overview with appointment, conversation, and reminder signals |
-| **Appointments** | Search, filter, and manage booking records |
+| **Dashboard** | Live operational overview with a real setup checklist and booking/conversation signals |
+| **Appointments** | Search, filter, create, edit, and cancel booking records after required setup exists |
 | **Conversations** | AI chat log viewer with conversation list, message panel, and handoff state |
-| **Staff Management** | Team roster with roles, contact info, availability, and booking count |
-| **Services Setup** | Service catalog with duration, pricing, and category |
-| **Availability** | Per-day working hours configuration |
-| **Channels** | WhatsApp, Facebook, Telegram, and web widget connection status |
+| **Staff Management** | Team roster with roles, contact info, active/archive state, and saved service assignments |
+| **Services Setup** | Service catalog with duration, pricing, category, and archive-safe deactivation |
+| **Availability** | Per-day working hours configuration with customer-facing preview |
+| **Channels** | WhatsApp setup status only; other channels are deferred |
 | **AI Settings** | Assistant name, tone, language, greeting, handoff, auto-confirm, and reminder settings |
-| **Settings** | Profile, business, notifications, and security tabs |
+| **Settings** | Essential account and business details |
 | **Privacy / Terms** | Launch-ready legal pages for the MVP pilot |
-| **Authentication** | Login, signup, onboarding, and AuthGuard route protection |
+| **Authentication** | Login, signup, onboarding, and AuthGuard route protection backed by the local API |
 
 ### Non-MVP Redirects
 
@@ -300,10 +300,12 @@ H1–H4, `p`, `label`, `button`, `input` size/weight/line-height set via `@layer
 
 ## Launch Notes
 
-The remaining non-MVP routes are intentionally redirected back to the dashboard. The launch surface is now centered on the live booking core, conversations, reminders, dashboard metrics, and the legal pages.
+The remaining non-MVP routes are intentionally redirected back to the dashboard. The launch surface is centered on the live booking core, WhatsApp conversations, assistant setup, reminder-ready booking operations, and legal pages.
+
+For initial pilots, do not add analytics dashboards, extra charting, billing modules, or secondary channels before WhatsApp booking reliability is proven with real businesses.
 
 ## Next Steps
 
-1. Keep the seeded demo flow in sync with future schema changes so it remains a reliable first-run path.
-2. Review retention and support copy before any broader production rollout.
-3. Avoid reintroducing marketing, billing, analytics, or support modules into the primary navigation until they are intentionally shipped.
+1. Complete the real setup path for each pilot: business details, one service, one team member, working hours, WhatsApp, and assistant test.
+2. Validate booking creation, cancellation, handoff, and reminder behavior with a real BD business owner.
+3. Keep analytics, billing, extra channels, and support tooling deferred until customer usage proves they are needed.

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Edit, Trash2, Clock, Mail, Phone } from 'lucide-react';
+import { Archive, Plus, Edit, Clock, Mail, Phone } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Checkbox } from '../ui/checkbox';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -11,17 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../i18n';
 import {
+  assignStaffService,
   createStaff,
   deleteStaff,
   fetchAppointments,
   fetchServices,
   fetchStaff,
   fetchStaffHours,
-  mapStaffServicesFromAppointments,
+  fetchStaffServices,
   updateStaff,
   type TenantScope,
 } from '../../api';
-import type { Staff, StaffHour } from '../../types';
+import type { Service, Staff, StaffHour, StaffService } from '../../types';
 
 interface StaffCard {
   id: string;
@@ -32,6 +34,7 @@ interface StaffCard {
   avatarUrl: string;
   hours: string;
   services: string[];
+  serviceIds: string[];
   availability: 'Available' | 'Busy' | 'Inactive';
   bookings: number;
   active: boolean;
@@ -43,6 +46,7 @@ interface StaffDraft {
   email: string;
   phone: string;
   active: boolean;
+  serviceIds: string[];
 }
 
 type ActionTone = 'success' | 'error' | 'info';
@@ -95,6 +99,7 @@ function mapStaffCard(
   staff: Staff,
   hours: string,
   services: string[],
+  serviceIds: string[],
   bookings: number
 ): StaffCard {
   return {
@@ -106,6 +111,7 @@ function mapStaffCard(
     avatarUrl: staff.avatarUrl ?? '',
     hours,
     services,
+    serviceIds,
     availability: mapAvailability(staff.active, bookings),
     bookings,
     active: staff.active,
@@ -119,6 +125,7 @@ function buildDraft(staff?: StaffCard | null): StaffDraft {
     email: staff?.email ?? '',
     phone: staff?.phone ?? '',
     active: staff?.active ?? true,
+    serviceIds: staff?.serviceIds ?? [],
   };
 }
 
@@ -126,6 +133,7 @@ export default function StaffManagement() {
   const { session } = useAuth();
   const { t } = useI18n();
   const [staff, setStaff] = useState<StaffCard[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
@@ -181,15 +189,23 @@ export default function StaffManagement() {
       const staffRows = staffResult.value;
       const appointmentRows = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : [];
       const serviceRows = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
+      setServices(serviceRows);
 
       const serviceById = new Map(serviceRows.map((service) => [service.id, service]));
       const staffCards = await Promise.all(
         staffRows.map(async (member) => {
-          const memberHoursResult = await fetchStaffHours(scope, member.id).catch(() => []);
+          const [memberHoursResult, staffServicesResult] = await Promise.all([
+            fetchStaffHours(scope, member.id).catch(() => []),
+            fetchStaffServices(scope, member.id).catch(() => [] as StaffService[]),
+          ]);
           const hoursText = formatHours(memberHoursResult, t);
-          const servicesText = mapStaffServicesFromAppointments(member.id, appointmentRows, serviceById);
+          const activeAssignments = staffServicesResult.filter((assignment) => assignment.active);
+          const serviceIds = activeAssignments.map((assignment) => assignment.serviceId);
+          const servicesText = serviceIds
+            .map((serviceId) => serviceById.get(serviceId)?.name)
+            .filter((serviceName): serviceName is string => Boolean(serviceName));
           const bookings = appointmentRows.filter((appointment) => appointment.staffId === member.id).length;
-          return mapStaffCard(member, hoursText, servicesText, bookings);
+          return mapStaffCard(member, hoursText, servicesText, serviceIds, bookings);
         })
       );
 
@@ -218,6 +234,8 @@ export default function StaffManagement() {
     };
   }, [scope, t]);
 
+  const activeServices = useMemo(() => services.filter((service) => service.active), [services]);
+
   const stats = useMemo(() => {
     const total = staff.length;
     const availableNow = staff.filter((member) => member.availability === 'Available').length;
@@ -236,6 +254,26 @@ export default function StaffManagement() {
     setEditingStaffId(member.id);
     setDraft(buildDraft(member));
     setStaffDialogOpen(true);
+  };
+
+  const selectedServiceNames = (serviceIds: string[]) => {
+    const activeServices = services.filter((service) => service.active);
+    const serviceById = new Map(activeServices.map((service) => [service.id, service.name]));
+    return serviceIds
+      .map((serviceId) => serviceById.get(serviceId))
+      .filter((serviceName): serviceName is string => Boolean(serviceName));
+  };
+
+  const syncStaffServices = async (tenantScope: TenantScope, staffId: string, serviceIds: string[]) => {
+    const selectedIds = new Set(serviceIds);
+    await Promise.all(
+      services.map((service) =>
+        assignStaffService(tenantScope, staffId, {
+          serviceId: service.id,
+          active: selectedIds.has(service.id),
+        })
+      )
+    );
   };
 
   const saveStaff = async () => {
@@ -259,6 +297,18 @@ export default function StaffManagement() {
       return;
     }
 
+    if (payload.email && !/^\S+@\S+\.\S+$/.test(payload.email)) {
+      setActionStatus(t('staff.emailInvalid'));
+      setActionTone('error');
+      return;
+    }
+
+    if (payload.phone && payload.phone.replace(/\D/g, '').length < 8) {
+      setActionStatus(t('staff.phoneInvalid'));
+      setActionTone('error');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -267,6 +317,7 @@ export default function StaffManagement() {
         if (!response) {
           throw new Error(t('staff.saveFailed'));
         }
+        await syncStaffServices(scope, response.id, draft.serviceIds);
         setStaff((current) =>
           current.map((member) =>
             member.id === editingStaffId
@@ -278,6 +329,8 @@ export default function StaffManagement() {
                   phone: response.phone ?? '',
                   avatarUrl: response.avatarUrl ?? '',
                   active: response.active,
+                  services: selectedServiceNames(draft.serviceIds),
+                  serviceIds: draft.serviceIds,
                   availability: mapAvailability(response.active, member.bookings),
                 }
               : member
@@ -290,8 +343,9 @@ export default function StaffManagement() {
         if (!response) {
           throw new Error(t('staff.saveFailed'));
         }
+        await syncStaffServices(scope, response.id, draft.serviceIds);
         setStaff((current) => [
-          mapStaffCard(response, t('staff.scheduleNotConfigured'), [], 0),
+          mapStaffCard(response, t('staff.scheduleNotConfigured'), selectedServiceNames(draft.serviceIds), draft.serviceIds, 0),
           ...current,
         ]);
         setActionStatus(t('staff.memberAdded'));
@@ -307,25 +361,38 @@ export default function StaffManagement() {
     }
   };
 
-  const removeStaff = async (member: StaffCard) => {
+  const archiveStaff = async (member: StaffCard) => {
     if (!scope) {
       setActionStatus(t('staff.tenantScopeMissing'));
       setActionTone('error');
       return;
     }
 
-    const confirmed = window.confirm(t('staff.deleteConfirm', { name: member.name }));
+    const confirmed = window.confirm(t('staff.archiveConfirm', { name: member.name }));
     if (!confirmed) {
       return;
     }
 
     try {
-      await deleteStaff(scope, member.id);
-      setStaff((current) => current.filter((item) => item.id !== member.id));
-      setActionStatus(t('staff.deletedThroughApi', { name: member.name }));
+      const archived = await deleteStaff(scope, member.id);
+      if (!archived) {
+        throw new Error(t('staff.archiveFailed', { name: member.name }));
+      }
+      setStaff((current) =>
+        current.map((item) =>
+          item.id === member.id
+            ? {
+                ...item,
+                active: archived.active,
+                availability: mapAvailability(archived.active, item.bookings),
+              }
+            : item
+        )
+      );
+      setActionStatus(t('staff.archivedThroughApi', { name: member.name }));
       setActionTone('success');
     } catch (error) {
-      setActionStatus(error instanceof Error ? error.message : t('staff.deleteFailed', { name: member.name }));
+      setActionStatus(error instanceof Error ? error.message : t('staff.archiveFailed', { name: member.name }));
       setActionTone('error');
     }
   };
@@ -429,10 +496,10 @@ export default function StaffManagement() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void removeStaff(member)}
-                    aria-label={`${t('common.delete')} ${member.name}`}
+                    onClick={() => void archiveStaff(member)}
+                    aria-label={`${t('staff.archive')} ${member.name}`}
                   >
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <Archive className="h-4 w-4 text-gray-500" />
                   </Button>
                 </div>
               </div>
@@ -542,6 +609,33 @@ export default function StaffManagement() {
                 onChange={(event) => setDraft((current) => ({ ...current, phone: event.target.value }))}
                 placeholder="+8801XXXXXXXXX"
               />
+            </div>
+            <div className="space-y-3">
+              <Label>{t('staff.assignServices')}</Label>
+              {activeServices.length > 0 ? (
+                <div className="grid gap-2 rounded-md border border-gray-200 p-3">
+                  {activeServices.map((service) => (
+                    <label key={service.id} className="flex items-center gap-3 text-sm">
+                      <Checkbox
+                        checked={draft.serviceIds.includes(service.id)}
+                        onCheckedChange={(checked) =>
+                          setDraft((current) => ({
+                            ...current,
+                            serviceIds: checked === true
+                              ? Array.from(new Set([...current.serviceIds, service.id]))
+                              : current.serviceIds.filter((serviceId) => serviceId !== service.id),
+                          }))
+                        }
+                      />
+                      <span>{service.name}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-md border border-dashed border-gray-300 p-3 text-sm text-gray-500">
+                  {t('staff.addServicesFirst')}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t('staff.status')}</Label>

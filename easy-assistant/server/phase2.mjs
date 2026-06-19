@@ -120,6 +120,11 @@ export function createPhase2Service(repository) {
       return { staff: serializeStaff(staff) };
     },
 
+    listStaffServices(scope, staffId) {
+      requireScopedResource(serializeStaff(repository.findStaffById(staffId)), scope, 'staff');
+      return page(repository.listStaffServicesForStaff(scope, staffId).map(serializeStaffService));
+    },
+
     assignStaffService(scope, staffId, input) {
       requireScopedResource(serializeStaff(repository.findStaffById(staffId)), scope, 'staff');
       requireScopedResource(serializeService(repository.findServiceById(input.serviceId)), scope, 'service');

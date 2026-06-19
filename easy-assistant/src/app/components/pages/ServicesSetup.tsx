@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Edit, Trash2, Clock, DollarSign } from 'lucide-react';
+import { Archive, Plus, Edit, Clock, DollarSign } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -14,14 +14,13 @@ import { useI18n } from '../../i18n';
 import {
   createService,
   deleteService,
-  fetchAppointments,
   fetchServices,
   fetchStaff,
-  mapServiceStaffFromAppointments,
+  fetchStaffServices,
   updateService,
   type TenantScope,
 } from '../../api';
-import type { Appointment, Service, Staff } from '../../types';
+import type { Service } from '../../types';
 
 interface ServiceCard {
   id: string;
@@ -42,7 +41,6 @@ interface ServiceDraft {
   price: string;
   description: string;
   active: boolean;
-  staffName: string;
 }
 
 type ActionTone = 'success' | 'error' | 'info';
@@ -92,7 +90,6 @@ function buildDraft(service?: ServiceCard | null): ServiceDraft {
     price: service ? String(service.price) : '1000',
     description: service?.description ?? '',
     active: service?.active ?? true,
-    staffName: service?.staffNames[0] ?? '__none__',
   };
 }
 
@@ -108,8 +105,6 @@ export default function ServicesSetup() {
   const { session } = useAuth();
   const { t } = useI18n();
   const [services, setServices] = useState<ServiceCard[]>([]);
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
@@ -130,19 +125,7 @@ export default function ServicesSetup() {
     };
   }, [session]);
 
-  const staffById = useMemo(() => new Map(staff.map((member) => [member.id, member])), [staff]);
-
-  const serviceView = useMemo(
-    () =>
-      services.map((service) => ({
-        ...service,
-        staffNames:
-          service.staffNames.length > 0
-            ? service.staffNames
-            : mapServiceStaffFromAppointments(service.id, appointments, staffById),
-      })),
-    [appointments, services, staffById]
-  );
+  const serviceView = services;
 
   useEffect(() => {
     let active = true;
@@ -157,29 +140,35 @@ export default function ServicesSetup() {
       setActionStatus('');
       setActionTone('info');
 
-      const [servicesResult, staffResult, appointmentsResult] = await Promise.allSettled([
+      const [servicesResult, staffResult] = await Promise.allSettled([
         fetchServices(scope),
         fetchStaff(scope),
-        fetchAppointments(scope),
       ]);
 
       if (!active) {
         return;
       }
 
-      const serviceRows =
-        servicesResult.status === 'fulfilled'
-          ? servicesResult.value.map((service) => mapServiceCard(service, []))
-          : [];
+      const serviceRows = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
       const staffRows = staffResult.status === 'fulfilled' ? staffResult.value : [];
-      const appointmentRows = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : [];
+      const staffNamesByServiceId = new Map<string, string[]>();
 
-      setServices(serviceRows);
-      setStaff(staffRows);
-      setAppointments(appointmentRows);
+      await Promise.all(
+        staffRows.map(async (member) => {
+          const assignments = await fetchStaffServices(scope, member.id).catch(() => []);
+          assignments
+            .filter((assignment) => assignment.active)
+            .forEach((assignment) => {
+              const names = staffNamesByServiceId.get(assignment.serviceId) ?? [];
+              staffNamesByServiceId.set(assignment.serviceId, [...names, member.name]);
+            });
+        })
+      );
+
+      setServices(serviceRows.map((service) => mapServiceCard(service, staffNamesByServiceId.get(service.id) ?? [])));
       setIsLive(servicesResult.status === 'fulfilled');
 
-      if (servicesResult.status !== 'fulfilled' || staffResult.status !== 'fulfilled' || appointmentsResult.status !== 'fulfilled') {
+      if (servicesResult.status !== 'fulfilled' || staffResult.status !== 'fulfilled') {
         setActionStatus(t('services.liveServicesUnavailable'));
         setActionTone('error');
       }
@@ -273,7 +262,7 @@ export default function ServicesSetup() {
           throw new Error(t('services.saveFailed'));
         }
         setServices((current) => [
-          mapServiceCard(response, draft.staffName !== '__none__' ? [draft.staffName] : []),
+          mapServiceCard(response, []),
           ...current,
         ]);
         setActionStatus(t('services.savedThroughApi'));
@@ -289,25 +278,30 @@ export default function ServicesSetup() {
     }
   };
 
-  const removeService = async (service: ServiceCard) => {
+  const archiveService = async (service: ServiceCard) => {
     if (!scope) {
       setActionStatus(t('services.tenantScopeMissing'));
       setActionTone('error');
       return;
     }
 
-    const confirmed = window.confirm(t('services.deleteConfirm', { name: service.name }));
+    const confirmed = window.confirm(t('services.archiveConfirm', { name: service.name }));
     if (!confirmed) {
       return;
     }
 
     try {
-      await deleteService(scope, service.id);
-      setServices((current) => current.filter((item) => item.id !== service.id));
-      setActionStatus(t('services.deletedThroughApi', { name: service.name }));
+      const archived = await deleteService(scope, service.id);
+      if (!archived) {
+        throw new Error(t('services.archiveFailed', { name: service.name }));
+      }
+      setServices((current) =>
+        current.map((item) => (item.id === service.id ? mapServiceCard(archived, item.staffNames) : item))
+      );
+      setActionStatus(t('services.archivedThroughApi', { name: service.name }));
       setActionTone('success');
     } catch (error) {
-      setActionStatus(error instanceof Error ? error.message : t('services.deleteFailed', { name: service.name }));
+      setActionStatus(error instanceof Error ? error.message : t('services.archiveFailed', { name: service.name }));
       setActionTone('error');
     }
   };
@@ -448,10 +442,10 @@ export default function ServicesSetup() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => void removeService(service)}
-                        aria-label={`${t('common.delete')} ${service.name}`}
+                        onClick={() => void archiveService(service)}
+                        aria-label={`${t('services.archiveService')} ${service.name}`}
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Archive className="h-4 w-4 text-gray-500" />
                       </Button>
                     </div>
                   </TableCell>
@@ -530,25 +524,6 @@ export default function ServicesSetup() {
                 placeholder={t('services.descriptionPlaceholder')}
                 rows={3}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="service-staff">{t('services.previewTeamLink')}</Label>
-              <Select value={draft.staffName} onValueChange={(value) => setDraft((current) => ({ ...current, staffName: value }))}>
-                <SelectTrigger id="service-staff">
-                  <SelectValue placeholder={t('services.previewTeamLink')} />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="__none__">{t('services.unassigned')}</SelectItem>
-                  {staff.map((member) => (
-                    <SelectItem key={member.id} value={member.name}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500">
-                {t('services.teamAssignmentNote')}
-              </p>
             </div>
           </div>
           <DialogFooter>
