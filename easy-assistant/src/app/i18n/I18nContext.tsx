@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useContext,
@@ -93,4 +94,3 @@ export function useI18n() {
 
   return context;
 }
-

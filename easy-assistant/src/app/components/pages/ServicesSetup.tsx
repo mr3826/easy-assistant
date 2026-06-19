@@ -22,7 +22,6 @@ import {
   type TenantScope,
 } from '../../api';
 import type { Appointment, Service, Staff } from '../../types';
-import { DEMO_SERVICES } from '../../config/demoData';
 
 interface ServiceCard {
   id: string;
@@ -46,13 +45,7 @@ interface ServiceDraft {
   staffName: string;
 }
 
-const fallbackSeed: ServiceCard[] = DEMO_SERVICES.map((service, index) => ({
-  id: `seed-service-${index + 1}`,
-  ...service,
-  active: true,
-  staffNames: [...service.staffNames],
-  currency: 'BDT',
-}));
+type ActionTone = 'success' | 'error' | 'info';
 
 function mapServiceCard(service: Service, staffNames: string[]): ServiceCard {
   return {
@@ -66,10 +59,6 @@ function mapServiceCard(service: Service, staffNames: string[]): ServiceCard {
     staffNames,
     currency: service.currency,
   };
-}
-
-function mapFallbackCard(card: ServiceCard): ServiceCard {
-  return { ...card, staffNames: [...card.staffNames] };
 }
 
 function categoryLabel(category: string, t: (path: string) => string) {
@@ -118,12 +107,13 @@ function formatPrice(amount: number, currency: string) {
 export default function ServicesSetup() {
   const { session } = useAuth();
   const { t } = useI18n();
-  const [services, setServices] = useState<ServiceCard[]>(fallbackSeed);
+  const [services, setServices] = useState<ServiceCard[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
+  const [actionTone, setActionTone] = useState<ActionTone>('info');
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -165,6 +155,7 @@ export default function ServicesSetup() {
 
       setLoading(true);
       setActionStatus('');
+      setActionTone('info');
 
       const [servicesResult, staffResult, appointmentsResult] = await Promise.allSettled([
         fetchServices(scope),
@@ -179,17 +170,18 @@ export default function ServicesSetup() {
       const serviceRows =
         servicesResult.status === 'fulfilled'
           ? servicesResult.value.map((service) => mapServiceCard(service, []))
-          : fallbackSeed.map(mapFallbackCard);
+          : [];
       const staffRows = staffResult.status === 'fulfilled' ? staffResult.value : [];
       const appointmentRows = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : [];
 
       setServices(serviceRows);
       setStaff(staffRows);
       setAppointments(appointmentRows);
-      setIsLive(servicesResult.status === 'fulfilled' || staffResult.status === 'fulfilled' || appointmentsResult.status === 'fulfilled');
+      setIsLive(servicesResult.status === 'fulfilled');
 
       if (servicesResult.status !== 'fulfilled' || staffResult.status !== 'fulfilled' || appointmentsResult.status !== 'fulfilled') {
         setActionStatus(t('services.liveServicesUnavailable'));
+        setActionTone('error');
       }
 
       setLoading(false);
@@ -226,6 +218,7 @@ export default function ServicesSetup() {
   const saveService = async () => {
     if (!scope) {
       setActionStatus(t('services.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -240,6 +233,19 @@ export default function ServicesSetup() {
 
     if (!payload.name) {
       setActionStatus(t('services.serviceNameRequired'));
+      setActionTone('error');
+      return;
+    }
+
+    if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes <= 0) {
+      setActionStatus(t('services.durationRequired'));
+      setActionTone('error');
+      return;
+    }
+
+    if (!Number.isFinite(payload.price) || payload.price < 0) {
+      setActionStatus(t('services.priceRequired'));
+      setActionTone('error');
       return;
     }
 
@@ -249,75 +255,35 @@ export default function ServicesSetup() {
       if (editingServiceId) {
         const response = await updateService(scope, editingServiceId, payload);
         const updated = response ?? null;
-        if (updated) {
-          setServices((current) =>
-            current.map((service) =>
-              service.id === editingServiceId
-                ? mapServiceCard(updated, service.staffNames)
-                : service
-            )
-          );
+        if (!updated) {
+          throw new Error(t('services.saveFailed'));
         }
+        setServices((current) =>
+          current.map((service) =>
+            service.id === editingServiceId
+              ? mapServiceCard(updated, service.staffNames)
+              : service
+          )
+        );
         setActionStatus(t('services.savedThroughApi'));
+        setActionTone('success');
       } else {
         const response = await createService(scope, payload);
-        if (response) {
-          setServices((current) => [
-            mapServiceCard(response, draft.staffName !== '__none__' ? [draft.staffName] : []),
-            ...current,
-          ]);
-        } else {
-          setServices((current) => [
-            {
-              id: `local-${Date.now()}`,
-              name: payload.name,
-              category: payload.category ?? 'Uncategorized',
-              durationMinutes: payload.durationMinutes,
-              price: payload.price,
-              description: payload.description ?? '',
-              active: payload.active,
-              staffNames: draft.staffName !== '__none__' ? [draft.staffName] : [],
-              currency: 'BDT',
-            },
-            ...current,
-          ]);
+        if (!response) {
+          throw new Error(t('services.saveFailed'));
         }
+        setServices((current) => [
+          mapServiceCard(response, draft.staffName !== '__none__' ? [draft.staffName] : []),
+          ...current,
+        ]);
         setActionStatus(t('services.savedThroughApi'));
+        setActionTone('success');
       }
 
       setServiceDialogOpen(false);
-    } catch {
-      setServices((current) => {
-        if (editingServiceId) {
-          return current.map((service) =>
-            service.id === editingServiceId
-              ? {
-                  ...service,
-                  ...payload,
-                  category: payload.category ?? 'Uncategorized',
-                  description: payload.description ?? '',
-                }
-              : service
-          );
-        }
-
-        return [
-          {
-            id: `local-${Date.now()}`,
-            name: payload.name,
-            category: payload.category ?? 'Uncategorized',
-            durationMinutes: payload.durationMinutes,
-            price: payload.price,
-            description: payload.description ?? '',
-            active: payload.active,
-            staffNames: draft.staffName !== '__none__' ? [draft.staffName] : [],
-            currency: 'BDT',
-          },
-          ...current,
-        ];
-      });
-      setActionStatus(t('services.savedLocallyOnly'));
-      setServiceDialogOpen(false);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('services.saveFailed'));
+      setActionTone('error');
     } finally {
       setSaving(false);
     }
@@ -326,6 +292,7 @@ export default function ServicesSetup() {
   const removeService = async (service: ServiceCard) => {
     if (!scope) {
       setActionStatus(t('services.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -338,9 +305,10 @@ export default function ServicesSetup() {
       await deleteService(scope, service.id);
       setServices((current) => current.filter((item) => item.id !== service.id));
       setActionStatus(t('services.deletedThroughApi', { name: service.name }));
-    } catch {
-      setServices((current) => current.filter((item) => item.id !== service.id));
-      setActionStatus(t('services.removedLocallyOnly', { name: service.name }));
+      setActionTone('success');
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('services.deleteFailed', { name: service.name }));
+      setActionTone('error');
     }
   };
 
@@ -359,12 +327,16 @@ export default function ServicesSetup() {
       </div>
 
       {actionStatus && (
-        <p className="text-sm text-green-700" role="status" aria-live="polite">
+        <p
+          className={`text-sm ${actionTone === 'error' ? 'text-red-700' : actionTone === 'success' ? 'text-green-700' : 'text-gray-600'}`}
+          role="status"
+          aria-live="polite"
+        >
           {actionStatus}
         </p>
       )}
       {loading && <p className="text-sm text-gray-500">{t('services.loading')}</p>}
-      {!isLive && !loading && <p className="text-xs text-gray-500">{t('services.demoNote')}</p>}
+      {!isLive && !loading && <p className="text-xs text-gray-500">{t('services.noLiveData')}</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>

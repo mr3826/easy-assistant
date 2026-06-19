@@ -25,6 +25,8 @@ interface DayHours {
   closeTime: string;
 }
 
+type ActionTone = 'success' | 'error' | 'info';
+
 function normalizeHours(hours: DayHours[]) {
   const map = new Map(hours.map((entry) => [entry.weekday, entry]));
   return weekDays.map((_, index) => {
@@ -46,6 +48,7 @@ export default function AvailabilityPage() {
   const [saving, setSaving] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
+  const [actionTone, setActionTone] = useState<ActionTone>('info');
 
   const scope = useMemo<TenantScope | null>(() => {
     if (!session?.organization?.id || !session?.location?.id) {
@@ -69,6 +72,7 @@ export default function AvailabilityPage() {
 
       setLoading(true);
       setActionStatus('');
+      setActionTone('info');
 
       try {
         const businessHours = await fetchBusinessHours(scope);
@@ -83,9 +87,9 @@ export default function AvailabilityPage() {
           return;
         }
 
-        setHours(normalizeHours(buildBusinessHourSeed().map((entry) => ({ ...entry }))));
         setIsLive(false);
-        setActionStatus(t('availability.standardHours'));
+        setActionStatus(t('availability.loadFailed'));
+        setActionTone('error');
       } finally {
         if (active) {
           setLoading(false);
@@ -98,7 +102,7 @@ export default function AvailabilityPage() {
     return () => {
       active = false;
     };
-  }, [scope]);
+  }, [scope, t]);
 
   const applyToAll = () => {
     const firstActive = hours.find((entry) => entry.active) ?? hours[0];
@@ -111,6 +115,7 @@ export default function AvailabilityPage() {
       }))
     );
     setActionStatus(t('availability.copied'));
+    setActionTone('info');
   };
 
   const saveChanges = async () => {
@@ -120,11 +125,13 @@ export default function AvailabilityPage() {
         invalidDay.weekday === 0 ? 6 : invalidDay.weekday - 1
       ];
       setActionStatus(t('availability.invalidHour', { day: t(`availability.${dayKey}`) }));
+      setActionTone('error');
       return;
     }
 
     if (!scope) {
       setActionStatus(t('availability.signInMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -143,8 +150,10 @@ export default function AvailabilityPage() {
       setHours(normalizeHours(mergeBusinessHours(scope, updatedHours).map((entry) => ({ ...entry }))));
       setIsLive(true);
       setActionStatus(t('availability.hoursSaved'));
+      setActionTone('success');
     } catch {
       setActionStatus(t('availability.liveHoursUnavailable'));
+      setActionTone('error');
     } finally {
       setSaving(false);
     }
@@ -167,12 +176,16 @@ export default function AvailabilityPage() {
         <p className="text-gray-500">{t('availability.subtitle')}</p>
       </div>
       {actionStatus && (
-        <p className="text-sm text-green-700" role="status" aria-live="polite">
+        <p
+          className={`text-sm ${actionTone === 'error' ? 'text-red-700' : actionTone === 'success' ? 'text-green-700' : 'text-gray-600'}`}
+          role="status"
+          aria-live="polite"
+        >
           {actionStatus}
         </p>
       )}
       {loading && <p className="text-sm text-gray-500">{t('availability.loading')}</p>}
-      {!isLive && !loading && <p className="text-xs text-gray-500">{t('availability.defaultHours')}</p>}
+      {!isLive && !loading && <p className="text-xs text-gray-500">{t('availability.noLiveData')}</p>}
 
       <Card>
         <CardHeader>

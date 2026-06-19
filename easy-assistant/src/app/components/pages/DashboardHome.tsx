@@ -16,12 +16,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { LoadingFallback } from '../guards';
-import {
-  DEMO_BUSINESS_NAME,
-  DEMO_DASHBOARD_METRICS,
-  DEMO_RECENT_BOOKINGS,
-  DEMO_SETUP_ITEMS,
-} from '../../config/demoData';
+import { DEMO_SETUP_ITEMS } from '../../config/demoData';
 import { useI18n } from '../../i18n';
 
 function formatDateTime(value: string | null | undefined) {
@@ -257,14 +252,8 @@ export default function DashboardHome() {
     return <LoadingFallback message={t('common.loadingToday')} />;
   }
 
-  const usingDemoData =
-    !summary
-    || (
-      (summary.metrics?.length ?? 0) === 0
-      && (summary.recentAppointments?.length ?? 0) === 0
-    );
-  const metrics = summary?.metrics?.length ? summary.metrics : DEMO_DASHBOARD_METRICS;
-  const recentAppointments = summary?.recentAppointments?.length ? summary.recentAppointments : DEMO_RECENT_BOOKINGS;
+  const metrics = summary?.metrics ?? [];
+  const recentAppointments = summary?.recentAppointments ?? [];
   const hasAppointments = recentAppointments.length > 0;
   const bookingMetric = findMetric(metrics, ['booking']);
   const repliedMetric = findMetric(metrics, ['customers replied', 'message', 'conversation']);
@@ -302,9 +291,6 @@ export default function DashboardHome() {
           <p className="text-gray-500">{t('dashboard.subtitle')}</p>
           {summary?.generatedAt && (
             <p className="text-xs text-gray-400">{t('dashboard.lastUpdated', { time: formatDateTime(summary.generatedAt) })}</p>
-          )}
-          {usingDemoData && (
-            <p className="text-xs text-gray-400">{t('dashboard.demoData', { business: DEMO_BUSINESS_NAME })}</p>
           )}
         </div>
 

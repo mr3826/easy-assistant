@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, FileText, Plus, Search, Filter, Calendar, Clock } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Clock } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -46,15 +46,7 @@ interface AppointmentDraft {
   notes: string;
 }
 
-const fallbackAppointments: AppointmentCard[] = [
-  { id: 'seed-appt-1', customerName: 'Ayesha Rahman', customerEmail: '+8801712345678', serviceName: 'Bridal makeup', staffName: 'Maliha Chowdhury', date: 'Jun 11, 2026', time: '11:00 AM', duration: '180 min', status: 'confirmed', notes: 'WhatsApp inquiry for Eid event.' },
-  { id: 'seed-appt-2', customerName: 'Nabila Islam', customerEmail: '+8801811122233', serviceName: 'Facial', staffName: 'Farhana Rahman', date: 'Jun 11, 2026', time: '3:30 PM', duration: '60 min', status: 'pending', notes: 'Waiting for customer to confirm time.' },
-  { id: 'seed-appt-3', customerName: 'Sadia Khan', customerEmail: '+8801912345000', serviceName: 'Haircut', staffName: 'Nusrat Akter', date: 'Jun 12, 2026', time: '10:00 AM', duration: '45 min', status: 'confirmed', notes: 'WhatsApp booking created by assistant.' },
-];
-
-function makeId(prefix: string) {
-  return `${prefix}-${Date.now()}`;
-}
+type ActionTone = 'success' | 'error' | 'info';
 
 function buildDraft(appointment?: AppointmentCard | null, defaults?: { customerId?: string; serviceId?: string; staffId?: string }): AppointmentDraft {
   return {
@@ -153,6 +145,7 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
+  const [actionTone, setActionTone] = useState<ActionTone>('info');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | Appointment['status']>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -177,7 +170,7 @@ export default function AppointmentsPage() {
 
   const appointmentCards = useMemo(() => {
     const liveCards = mapAppointments(appointments, servicesById, staffById, customersById, t);
-    return isLive ? liveCards : fallbackAppointments;
+    return isLive ? liveCards : [];
   }, [appointments, customersById, isLive, servicesById, staffById, t]);
 
   useEffect(() => {
@@ -191,6 +184,7 @@ export default function AppointmentsPage() {
 
       setLoading(true);
       setActionStatus('');
+      setActionTone('info');
 
       const [appointmentsResult, servicesResult, staffResult, customersResult] = await Promise.allSettled([
         fetchAppointments(scope),
@@ -209,9 +203,9 @@ export default function AppointmentsPage() {
       setCustomers(customersResult.status === 'fulfilled' ? customersResult.value : []);
       setIsLive(
         appointmentsResult.status === 'fulfilled'
-          || servicesResult.status === 'fulfilled'
-          || staffResult.status === 'fulfilled'
-          || customersResult.status === 'fulfilled',
+          && servicesResult.status === 'fulfilled'
+          && staffResult.status === 'fulfilled'
+          && customersResult.status === 'fulfilled',
       );
 
       if (
@@ -221,6 +215,7 @@ export default function AppointmentsPage() {
         || customersResult.status !== 'fulfilled'
       ) {
         setActionStatus(t('appointments.loadSnapshot'));
+        setActionTone('error');
       }
 
       setLoading(false);
@@ -231,7 +226,7 @@ export default function AppointmentsPage() {
     return () => {
       active = false;
     };
-  }, [scope]);
+  }, [scope, t]);
 
   const filteredAppointments = useMemo(
     () =>
@@ -270,6 +265,7 @@ export default function AppointmentsPage() {
   const persistAppointment = async () => {
     if (!scope) {
       setActionStatus(t('appointments.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -280,6 +276,7 @@ export default function AppointmentsPage() {
 
     if (!draft.customerId || !draft.serviceId || !draft.staffId || Number.isNaN(start.getTime())) {
       setActionStatus(t('appointments.pickRequiredFields'));
+      setActionTone('error');
       return;
     }
 
@@ -301,67 +298,27 @@ export default function AppointmentsPage() {
     try {
       if (editingAppointmentId) {
         const response = await updateAppointment(scope, editingAppointmentId, payload);
-        if (response) {
-          setAppointments((current) =>
-            current.map((item) => (item.id === editingAppointmentId ? response : item)),
-          );
+        if (!response) {
+          throw new Error(t('appointments.saveFailed'));
         }
+        setAppointments((current) =>
+          current.map((item) => (item.id === editingAppointmentId ? response : item)),
+        );
         setActionStatus(t('appointments.savedThroughApi'));
+        setActionTone('success');
       } else {
         const response = await createAppointment(scope, payload);
-        if (response) {
-          setAppointments((current) => [response, ...current]);
-        } else {
-          setAppointments((current) => [
-            {
-              id: makeId('local-appt'),
-              organizationId: scope.organizationId,
-              locationId: scope.locationId,
-              customerId: draft.customerId,
-              serviceId: draft.serviceId,
-              staffId: draft.staffId,
-              channelId: null,
-              conversationId: null,
-              startTime: payload.startTime,
-              endTime: payload.endTime,
-              status: draft.status,
-              notes: payload.notes,
-              createdBy: 'manual',
-              createdAt: payload.startTime,
-              updatedAt: payload.startTime,
-            },
-            ...current,
-          ]);
+        if (!response) {
+          throw new Error(t('appointments.saveFailed'));
         }
+        setAppointments((current) => [response, ...current]);
         setActionStatus(t('appointments.savedThroughApi'));
+        setActionTone('success');
       }
       setDialogOpen(false);
-    } catch {
-      const fallbackAppointment: Appointment = {
-        id: makeId('local-appt'),
-        organizationId: scope.organizationId,
-        locationId: scope.locationId,
-        customerId: draft.customerId,
-        serviceId: draft.serviceId,
-        staffId: draft.staffId,
-        channelId: null,
-        conversationId: null,
-        startTime: payload.startTime,
-        endTime: payload.endTime,
-        status: draft.status,
-        notes: payload.notes,
-        createdBy: 'manual',
-        createdAt: payload.startTime,
-        updatedAt: payload.startTime,
-      };
-
-      setAppointments((current) =>
-        editingAppointmentId
-          ? current.map((item) => (item.id === editingAppointmentId ? fallbackAppointment : item))
-          : [fallbackAppointment, ...current],
-      );
-      setActionStatus(t('appointments.savedLocallyOnly'));
-      setDialogOpen(false);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('appointments.saveFailed'));
+      setActionTone('error');
     } finally {
       setSaving(false);
     }
@@ -370,6 +327,7 @@ export default function AppointmentsPage() {
   const cancelAppointment = async (appointmentId: string) => {
     if (!scope) {
       setActionStatus(t('appointments.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -379,11 +337,10 @@ export default function AppointmentsPage() {
         current.map((item) => (item.id === appointmentId ? { ...item, status: 'cancelled' } : item)),
       );
       setActionStatus(t('appointments.cancelledThroughApi'));
-    } catch {
-      setAppointments((current) =>
-        current.map((item) => (item.id === appointmentId ? { ...item, status: 'cancelled' } : item)),
-      );
-      setActionStatus(t('appointments.cancelledLocallyOnly'));
+      setActionTone('success');
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('appointments.cancelFailed'));
+      setActionTone('error');
     }
   };
 
@@ -402,12 +359,16 @@ export default function AppointmentsPage() {
       </div>
 
       {actionStatus && (
-        <p className="text-sm text-green-700" role="status" aria-live="polite">
+        <p
+          className={`text-sm ${actionTone === 'error' ? 'text-red-700' : actionTone === 'success' ? 'text-green-700' : 'text-gray-600'}`}
+          role="status"
+          aria-live="polite"
+        >
           {actionStatus}
         </p>
       )}
       {loading && <p className="text-sm text-gray-500">{t('appointments.loading')}</p>}
-      {!isLive && !loading && <p className="text-sm text-gray-500">{t('appointments.demoNote')}</p>}
+      {!isLive && !loading && <p className="text-sm text-gray-500">{t('appointments.noLiveData')}</p>}
 
       <Card>
         <CardContent className="pt-6">
@@ -438,15 +399,6 @@ export default function AppointmentsPage() {
                 </SelectContent>
               </Select>
 
-              <Button variant="outline" onClick={() => setActionStatus(t('appointments.csvExportPrepared'))}>
-                <Download className="mr-2 h-4 w-4" />
-                CSV
-              </Button>
-
-              <Button variant="outline" onClick={() => setActionStatus(t('appointments.pdfExportPrepared'))}>
-                <FileText className="mr-2 h-4 w-4" />
-                PDF
-              </Button>
             </div>
           </div>
         </CardContent>

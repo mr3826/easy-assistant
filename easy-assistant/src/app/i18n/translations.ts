@@ -219,6 +219,18 @@ type TranslationTree = {
     saveChanges: string;
     saving: string;
     loadSnapshot: string;
+    noLiveData: string;
+    tenantScopeMissing: string;
+    pickRequiredFields: string;
+    savedThroughApi: string;
+    saveFailed: string;
+    cancelledThroughApi: string;
+    cancelFailed: string;
+    selectCustomer: string;
+    selectService: string;
+    selectStaff: string;
+    notes: string;
+    notesPlaceholder: string;
     minutes: string;
     noShow: string;
     csvExportPrepared: string;
@@ -305,14 +317,20 @@ type TranslationTree = {
     saving: string;
     tenantScopeMissing: string;
     serviceNameRequired: string;
+    durationRequired: string;
+    priceRequired: string;
     savedThroughApi: string;
     savedLocallyOnly: string;
+    saveFailed: string;
     deleteConfirm: string;
     deletedThroughApi: string;
     removedLocallyOnly: string;
+    deleteFailed: string;
     liveServicesUnavailable: string;
+    noLiveData: string;
     apiBackedServiceRecord: string;
     teamAssignmentNote: string;
+    descriptionPlaceholder: string;
   };
   staff: {
     title: string;
@@ -355,12 +373,15 @@ type TranslationTree = {
     memberUpdated: string;
     savedThroughApi: string;
     savedLocallyOnly: string;
+    saveFailed: string;
     tenantScopeMissing: string;
     deleteConfirm: string;
     deletedThroughApi: string;
     removedLocallyOnly: string;
+    deleteFailed: string;
     partialLinks: string;
     liveStaffUnavailable: string;
+    noLiveData: string;
     available: string;
     busy: string;
     selectStatus: string;
@@ -377,6 +398,8 @@ type TranslationTree = {
     saving: string;
     standardHours: string;
     defaultHours: string;
+    loadFailed: string;
+    noLiveData: string;
     hoursSaved: string;
     liveHoursUnavailable: string;
     invalidHour: string;
@@ -727,7 +750,19 @@ export const translations: Record<Locale, TranslationTree> = {
       create: 'Create',
       saveChanges: 'Save Changes',
       saving: 'Saving...',
-      loadSnapshot: 'Showing the local booking snapshot until the backend CRUD endpoints are available everywhere.',
+      loadSnapshot: 'Could not load live booking data. Please retry before making changes.',
+      noLiveData: 'Live booking data is unavailable. No demo bookings are shown here.',
+      tenantScopeMissing: 'Sign in first so this location can be saved.',
+      pickRequiredFields: 'Choose a customer, service, staff member, date, and time before saving.',
+      savedThroughApi: 'Booking saved.',
+      saveFailed: 'Booking could not be saved. Nothing was changed.',
+      cancelledThroughApi: 'Booking cancelled.',
+      cancelFailed: 'Booking could not be cancelled. Nothing was changed.',
+      selectCustomer: 'Select customer',
+      selectService: 'Select service',
+      selectStaff: 'Select staff member',
+      notes: 'Notes',
+      notesPlaceholder: 'Add any customer request or internal note',
       minutes: 'min',
       noShow: 'No show',
       csvExportPrepared: 'CSV export is ready.',
@@ -814,14 +849,20 @@ export const translations: Record<Locale, TranslationTree> = {
       saving: 'Saving...',
       tenantScopeMissing: 'Sign in first so this location can be saved.',
       serviceNameRequired: 'Service name is required.',
+      durationRequired: 'Enter a valid service duration.',
+      priceRequired: 'Enter a valid service price.',
       savedThroughApi: 'Service saved.',
       savedLocallyOnly: 'Saved locally only.',
+      saveFailed: 'Service could not be saved. Nothing was changed.',
       deleteConfirm: 'Delete {name}? This cannot be undone.',
       deletedThroughApi: 'Deleted {name}.',
       removedLocallyOnly: 'Removed {name} locally.',
-      liveServicesUnavailable: 'Could not load live services. Showing demo data for now.',
-      apiBackedServiceRecord: 'This service record is backed by the API.',
+      deleteFailed: 'Could not delete {name}. Nothing was changed.',
+      liveServicesUnavailable: 'Could not load live services. Please retry before making changes.',
+      noLiveData: 'Live services are unavailable. No demo services are shown here.',
+      apiBackedServiceRecord: 'No description added.',
       teamAssignmentNote: 'Team assignment is just for preview until the live team data is connected.',
+      descriptionPlaceholder: 'Describe what customers receive',
     },
     staff: {
       title: 'Team',
@@ -864,12 +905,15 @@ export const translations: Record<Locale, TranslationTree> = {
       memberUpdated: 'Team member updated.',
       savedThroughApi: 'Team member saved.',
       savedLocallyOnly: 'Saved locally only.',
+      saveFailed: 'Team member could not be saved. Nothing was changed.',
       tenantScopeMissing: 'Sign in first so this location can be saved.',
       deleteConfirm: 'Delete {name}? This cannot be undone.',
       deletedThroughApi: 'Deleted {name}.',
       removedLocallyOnly: 'Removed {name} locally.',
+      deleteFailed: 'Could not delete {name}. Nothing was changed.',
       partialLinks: 'Showing team data. Some linked records are still loading.',
-      liveStaffUnavailable: 'Could not load live team records. Showing demo data for now.',
+      liveStaffUnavailable: 'Could not load live team records. Please retry before making changes.',
+      noLiveData: 'Live team records are unavailable. No demo team members are shown here.',
       available: 'Available',
       busy: 'Busy',
       selectStatus: 'Select status',
@@ -886,6 +930,8 @@ export const translations: Record<Locale, TranslationTree> = {
       saving: 'Saving...',
       standardHours: 'Showing standard salon hours until saved working hours are available.',
       defaultHours: 'Showing default salon hours until live working hours are available.',
+      loadFailed: 'Could not load live working hours. Please retry before saving changes.',
+      noLiveData: 'Live working hours are unavailable. Review carefully before retrying.',
       hoursSaved: 'Working hours saved for this location.',
       liveHoursUnavailable: 'Could not save working hours to the live account. Your changes remain on this screen for review.',
       invalidHour: '{day} closing time must be after opening time.',
@@ -1234,7 +1280,19 @@ export const translations: Record<Locale, TranslationTree> = {
       create: 'তৈরি করুন',
       saveChanges: 'পরিবর্তন সেভ করুন',
       saving: 'সেভ হচ্ছে...',
-      loadSnapshot: 'ব্যাকএন্ড CRUD endpoint সবখানে না আসা পর্যন্ত লোকাল বুকিং স্ন্যাপশট দেখানো হচ্ছে।',
+      loadSnapshot: 'লাইভ বুকিং ডেটা লোড করা যায়নি। পরিবর্তন করার আগে আবার চেষ্টা করুন।',
+      noLiveData: 'লাইভ বুকিং ডেটা পাওয়া যাচ্ছে না। এখানে কোনো ডেমো বুকিং দেখানো হচ্ছে না।',
+      tenantScopeMissing: 'এই লোকেশন সেভ করতে আগে সাইন ইন করুন।',
+      pickRequiredFields: 'সেভ করার আগে গ্রাহক, সার্ভিস, স্টাফ, তারিখ, এবং সময় নির্বাচন করুন।',
+      savedThroughApi: 'বুকিং সেভ হয়েছে।',
+      saveFailed: 'বুকিং সেভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
+      cancelledThroughApi: 'বুকিং বাতিল হয়েছে।',
+      cancelFailed: 'বুকিং বাতিল করা যায়নি। কোনো পরিবর্তন হয়নি।',
+      selectCustomer: 'গ্রাহক নির্বাচন করুন',
+      selectService: 'সার্ভিস নির্বাচন করুন',
+      selectStaff: 'স্টাফ নির্বাচন করুন',
+      notes: 'নোট',
+      notesPlaceholder: 'গ্রাহকের অনুরোধ বা অভ্যন্তরীণ নোট লিখুন',
       minutes: 'মিনিট',
       noShow: 'না এসেছেন',
       csvExportPrepared: 'CSV এক্সপোর্ট প্রস্তুত।',
@@ -1321,14 +1379,20 @@ export const translations: Record<Locale, TranslationTree> = {
       saving: 'সেভ হচ্ছে...',
       tenantScopeMissing: 'এই লোকেশন সেভ করতে আগে সাইন ইন করুন।',
       serviceNameRequired: 'সার্ভিসের নাম প্রয়োজন।',
+      durationRequired: 'সার্ভিসের সঠিক সময়কাল লিখুন।',
+      priceRequired: 'সার্ভিসের সঠিক মূল্য লিখুন।',
       savedThroughApi: 'সার্ভিস সেভ হয়েছে।',
       savedLocallyOnly: 'শুধু লোকালি সেভ হয়েছে।',
+      saveFailed: 'সার্ভিস সেভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
       deleteConfirm: '{name} মুছবেন? এটা আর ফেরত আনা যাবে না।',
       deletedThroughApi: '{name} মুছে ফেলা হয়েছে।',
       removedLocallyOnly: '{name} লোকালি মুছে ফেলা হয়েছে।',
-      liveServicesUnavailable: 'লাইভ সার্ভিস লোড করা যায়নি। আপাতত ডেমো ডেটা দেখানো হচ্ছে।',
-      apiBackedServiceRecord: 'এই সার্ভিস রেকর্ড API দ্বারা চালিত।',
+      deleteFailed: '{name} মুছে ফেলা যায়নি। কোনো পরিবর্তন হয়নি।',
+      liveServicesUnavailable: 'লাইভ সার্ভিস লোড করা যায়নি। পরিবর্তন করার আগে আবার চেষ্টা করুন।',
+      noLiveData: 'লাইভ সার্ভিস পাওয়া যাচ্ছে না। এখানে কোনো ডেমো সার্ভিস দেখানো হচ্ছে না।',
+      apiBackedServiceRecord: 'কোনো বিবরণ যোগ করা হয়নি।',
       teamAssignmentNote: 'লাইভ টিম ডেটা যুক্ত না হওয়া পর্যন্ত টিম অ্যাসাইনমেন্ট শুধু প্রিভিউয়ের জন্য।',
+      descriptionPlaceholder: 'গ্রাহক কী পাবেন তা লিখুন',
     },
     staff: {
       title: 'টিম',
@@ -1371,12 +1435,15 @@ export const translations: Record<Locale, TranslationTree> = {
       memberUpdated: 'টিম সদস্য আপডেট হয়েছে।',
       savedThroughApi: 'টিম সদস্য সেভ হয়েছে।',
       savedLocallyOnly: 'শুধু লোকালি সেভ হয়েছে।',
+      saveFailed: 'টিম সদস্য সেভ করা যায়নি। কোনো পরিবর্তন হয়নি।',
       tenantScopeMissing: 'এই লোকেশন সেভ করতে আগে সাইন ইন করুন।',
       deleteConfirm: '{name} মুছবেন? এটা আর ফেরত আনা যাবে না।',
       deletedThroughApi: '{name} মুছে ফেলা হয়েছে।',
       removedLocallyOnly: '{name} লোকালি মুছে ফেলা হয়েছে।',
+      deleteFailed: '{name} মুছে ফেলা যায়নি। কোনো পরিবর্তন হয়নি।',
       partialLinks: 'টিম ডেটা দেখানো হচ্ছে। কিছু সম্পর্কিত রেকর্ড এখনও লোড হচ্ছে।',
-      liveStaffUnavailable: 'লাইভ টিম রেকর্ড লোড করা যায়নি। আপাতত ডেমো ডেটা দেখানো হচ্ছে।',
+      liveStaffUnavailable: 'লাইভ টিম রেকর্ড লোড করা যায়নি। পরিবর্তন করার আগে আবার চেষ্টা করুন।',
+      noLiveData: 'লাইভ টিম রেকর্ড পাওয়া যাচ্ছে না। এখানে কোনো ডেমো টিম মেম্বার দেখানো হচ্ছে না।',
       available: 'উপলভ্য',
       busy: 'ব্যস্ত',
       selectStatus: 'স্ট্যাটাস নির্বাচন করুন',
@@ -1393,6 +1460,8 @@ export const translations: Record<Locale, TranslationTree> = {
       saving: 'সেভ হচ্ছে...',
       standardHours: 'সেভ করা কাজের সময় পাওয়া না গেলে স্ট্যান্ডার্ড salon hours দেখানো হচ্ছে।',
       defaultHours: 'লাইভ কাজের সময় পাওয়া না গেলে ডিফল্ট salon hours দেখানো হচ্ছে।',
+      loadFailed: 'লাইভ কাজের সময় লোড করা যায়নি। পরিবর্তন সেভ করার আগে আবার চেষ্টা করুন।',
+      noLiveData: 'লাইভ কাজের সময় পাওয়া যাচ্ছে না। আবার চেষ্টা করার আগে সাবধানে দেখুন।',
       hoursSaved: 'এই লোকেশনের কাজের সময় সেভ করা হয়েছে।',
       liveHoursUnavailable: 'লাইভ অ্যাকাউন্টে কাজের সময় সেভ করা যায়নি। আপনার পরিবর্তনগুলো এই স্ক্রিনেই থাকবে।',
       invalidHour: '{day} এর বন্ধের সময় খোলার সময়ের পরে হতে হবে।',

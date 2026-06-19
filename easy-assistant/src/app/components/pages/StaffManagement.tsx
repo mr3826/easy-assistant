@@ -45,47 +45,7 @@ interface StaffDraft {
   active: boolean;
 }
 
-const fallbackSeed: StaffCard[] = [
-  {
-    id: 'seed-staff-1',
-    name: 'Nusrat Akter',
-    roleTitle: 'Senior Stylist',
-    email: 'nusrat@glowbeauty.example',
-    phone: '+8801712345678',
-    avatarUrl: '',
-    hours: 'Sat-Thu, 10:00 AM - 8:00 PM',
-    services: ['Haircut', 'Hair color', 'Styling'],
-    availability: 'Available',
-    bookings: 42,
-    active: true,
-  },
-  {
-    id: 'seed-staff-2',
-    name: 'Farhana Rahman',
-    roleTitle: 'Beauty Therapist',
-    email: 'farhana@glowbeauty.example',
-    phone: '+8801811122233',
-    avatarUrl: '',
-    hours: 'Sat-Thu, 11:00 AM - 7:00 PM',
-    services: ['Facial', 'Spa treatment', 'Manicure'],
-    availability: 'Busy',
-    bookings: 37,
-    active: true,
-  },
-  {
-    id: 'seed-staff-3',
-    name: 'Maliha Chowdhury',
-    roleTitle: 'Makeup Artist',
-    email: 'maliha@glowbeauty.example',
-    phone: '+8801912345000',
-    avatarUrl: '',
-    hours: 'Fri-Sat, 9:00 AM - 9:00 PM',
-    services: ['Bridal makeup', 'Party makeup'],
-    availability: 'Available',
-    bookings: 28,
-    active: true,
-  },
-];
+type ActionTone = 'success' | 'error' | 'info';
 
 function mapAvailability(active: boolean, bookings: number): StaffCard['availability'] {
   if (!active) {
@@ -165,10 +125,11 @@ function buildDraft(staff?: StaffCard | null): StaffDraft {
 export default function StaffManagement() {
   const { session } = useAuth();
   const { t } = useI18n();
-  const [staff, setStaff] = useState<StaffCard[]>(fallbackSeed);
+  const [staff, setStaff] = useState<StaffCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
+  const [actionTone, setActionTone] = useState<ActionTone>('info');
   const [staffDialogOpen, setStaffDialogOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -196,6 +157,7 @@ export default function StaffManagement() {
 
       setLoading(true);
       setActionStatus('');
+      setActionTone('info');
 
       const [staffResult, appointmentsResult, servicesResult] = await Promise.allSettled([
         fetchStaff(scope),
@@ -208,9 +170,10 @@ export default function StaffManagement() {
       }
 
       if (staffResult.status !== 'fulfilled') {
-        setStaff(fallbackSeed);
+        setStaff([]);
         setIsLive(false);
         setActionStatus(t('staff.liveStaffUnavailable'));
+        setActionTone('error');
         setLoading(false);
         return;
       }
@@ -239,8 +202,10 @@ export default function StaffManagement() {
 
       if (staffCards.length === 0) {
         setActionStatus(t('staff.noStaffYet'));
+        setActionTone('info');
       } else if (appointmentsResult.status !== 'fulfilled' || servicesResult.status !== 'fulfilled') {
         setActionStatus(t('staff.partialLinks'));
+        setActionTone('error');
       }
 
       setLoading(false);
@@ -276,6 +241,7 @@ export default function StaffManagement() {
   const saveStaff = async () => {
     if (!scope) {
       setActionStatus(t('staff.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -289,6 +255,7 @@ export default function StaffManagement() {
 
     if (!payload.name) {
       setActionStatus(t('staff.memberNameRequired'));
+      setActionTone('error');
       return;
     }
 
@@ -297,91 +264,44 @@ export default function StaffManagement() {
     try {
       if (editingStaffId) {
         const response = await updateStaff(scope, editingStaffId, payload);
-        if (response) {
-          setStaff((current) =>
-            current.map((member) =>
-              member.id === editingStaffId
-                ? {
-                    ...member,
-                    name: response.name,
-                    roleTitle: response.roleTitle ?? t('staff.teamMember'),
-                    email: response.email ?? '',
-                    phone: response.phone ?? '',
-                    avatarUrl: response.avatarUrl ?? '',
-                    active: response.active,
-                    availability: mapAvailability(response.active, member.bookings),
-                  }
-                : member
-            )
-          );
+        if (!response) {
+          throw new Error(t('staff.saveFailed'));
         }
-        setActionStatus(t('staff.memberUpdated'));
-      } else {
-        const response = await createStaff(scope, payload);
-        if (response) {
-          setStaff((current) => [
-            mapStaffCard(response, t('staff.scheduleNotConfigured'), [], 0),
-            ...current,
-          ]);
-        } else {
-          setStaff((current) => [
-            {
-              id: `local-${Date.now()}`,
-              name: payload.name,
-              roleTitle: payload.roleTitle ?? t('staff.teamMember'),
-              email: payload.email ?? '',
-              phone: payload.phone ?? '',
-              avatarUrl: '',
-              hours: t('staff.scheduleNotConfigured'),
-              services: [],
-              availability: 'Available',
-              bookings: 0,
-              active: payload.active,
-            },
-            ...current,
-          ]);
-        }
-        setActionStatus(t('staff.memberAdded'));
-      }
-
-      setStaffDialogOpen(false);
-    } catch {
-      setStaff((current) => {
-        if (editingStaffId) {
-          return current.map((member) =>
+        setStaff((current) =>
+          current.map((member) =>
             member.id === editingStaffId
               ? {
                   ...member,
-                  ...payload,
-                  roleTitle: payload.roleTitle ?? t('staff.teamMember'),
-                  email: payload.email ?? '',
-                  phone: payload.phone ?? '',
-                  active: payload.active,
-                  availability: mapAvailability(payload.active, member.bookings),
+                  name: response.name,
+                  roleTitle: response.roleTitle ?? t('staff.teamMember'),
+                  email: response.email ?? '',
+                  phone: response.phone ?? '',
+                  avatarUrl: response.avatarUrl ?? '',
+                  active: response.active,
+                  availability: mapAvailability(response.active, member.bookings),
                 }
               : member
-          );
+          )
+        );
+        setActionStatus(t('staff.memberUpdated'));
+        setActionTone('success');
+      } else {
+        const response = await createStaff(scope, payload);
+        if (!response) {
+          throw new Error(t('staff.saveFailed'));
         }
-
-        return [
-          {
-            id: `local-${Date.now()}`,
-            name: payload.name,
-            roleTitle: payload.roleTitle ?? t('staff.teamMember'),
-            email: payload.email ?? '',
-            phone: payload.phone ?? '',
-            avatarUrl: '',
-            hours: t('staff.scheduleNotConfigured'),
-            services: [],
-            availability: 'Available',
-            bookings: 0,
-            active: payload.active,
-          },
+        setStaff((current) => [
+          mapStaffCard(response, t('staff.scheduleNotConfigured'), [], 0),
           ...current,
-        ];
-      });
-      setActionStatus(t('staff.savedLocallyOnly'));
+        ]);
+        setActionStatus(t('staff.memberAdded'));
+        setActionTone('success');
+      }
+
       setStaffDialogOpen(false);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('staff.saveFailed'));
+      setActionTone('error');
     } finally {
       setSaving(false);
     }
@@ -390,6 +310,7 @@ export default function StaffManagement() {
   const removeStaff = async (member: StaffCard) => {
     if (!scope) {
       setActionStatus(t('staff.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -402,9 +323,10 @@ export default function StaffManagement() {
       await deleteStaff(scope, member.id);
       setStaff((current) => current.filter((item) => item.id !== member.id));
       setActionStatus(t('staff.deletedThroughApi', { name: member.name }));
-    } catch {
-      setStaff((current) => current.filter((item) => item.id !== member.id));
-      setActionStatus(t('staff.removedLocallyOnly', { name: member.name }));
+      setActionTone('success');
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('staff.deleteFailed', { name: member.name }));
+      setActionTone('error');
     }
   };
 
@@ -423,12 +345,16 @@ export default function StaffManagement() {
       </div>
 
       {actionStatus && (
-        <p className="text-sm text-green-700" role="status" aria-live="polite">
+        <p
+          className={`text-sm ${actionTone === 'error' ? 'text-red-700' : actionTone === 'success' ? 'text-green-700' : 'text-gray-600'}`}
+          role="status"
+          aria-live="polite"
+        >
           {actionStatus}
         </p>
       )}
       {loading && <p className="text-sm text-gray-500">{t('staff.loading')}</p>}
-      {!isLive && !loading && <p className="text-xs text-gray-500">{t('staff.demoNote')}</p>}
+      {!isLive && !loading && <p className="text-xs text-gray-500">{t('staff.noLiveData')}</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
