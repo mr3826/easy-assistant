@@ -9,6 +9,7 @@ import type {
   Message,
   Service,
   Staff,
+  StaffService,
   StaffHour,
 } from '../types';
 import { apiRequest } from './client';
@@ -603,9 +604,10 @@ export async function updateService(scope: TenantScope, serviceId: string, input
 }
 
 export async function deleteService(scope: TenantScope, serviceId: string) {
-  await apiRequest<void>(withQuery(formatPath('/api/services/:serviceId', { serviceId }), buildTenantSearchParams(scope)), {
+  const response = await apiRequest<unknown>(withQuery(formatPath('/api/services/:serviceId', { serviceId }), buildTenantSearchParams(scope)), {
     method: 'DELETE',
   });
+  return readEntity<Service>(response, ['service']);
 }
 
 export async function fetchStaff(scope: TenantScope) {
@@ -627,8 +629,29 @@ export async function updateStaff(scope: TenantScope, staffId: string, input: Re
 }
 
 export async function deleteStaff(scope: TenantScope, staffId: string) {
-  await apiRequest<void>(withQuery(formatPath('/api/staff/:staffId', { staffId }), buildTenantSearchParams(scope)), {
+  const response = await apiRequest<unknown>(withQuery(formatPath('/api/staff/:staffId', { staffId }), buildTenantSearchParams(scope)), {
     method: 'DELETE',
+  });
+  return readEntity<Staff>(response, ['staff']);
+}
+
+export async function fetchStaffServices(scope: TenantScope, staffId: string) {
+  return requestCollection<StaffService>(formatPath('/api/staff/:staffId/services', { staffId }), scope, {}, [
+    'items',
+    'assignments',
+    'staffServices',
+    'data',
+  ]);
+}
+
+export async function assignStaffService(
+  scope: TenantScope,
+  staffId: string,
+  input: Pick<StaffService, 'serviceId' | 'active'>
+) {
+  return requestEntity<StaffService>(formatPath('/api/staff/:staffId/services', { staffId }), {
+    method: 'POST',
+    body: { ...scope, assignment: input },
   });
 }
 
@@ -670,6 +693,20 @@ export async function fetchCustomers(scope: TenantScope) {
 
 export async function fetchBusinessHours(scope: TenantScope) {
   return requestCollection<BusinessHour>('/api/availability/business-hours', scope, {}, ['items', 'businessHours', 'hours', 'data']);
+}
+
+export async function replaceBusinessHours(
+  scope: TenantScope,
+  hours: Array<Pick<BusinessHour, 'weekday' | 'openTime' | 'closeTime' | 'active'>>
+) {
+  const response = await apiRequest<unknown>('/api/availability/business-hours', {
+    method: 'PUT',
+    body: {
+      ...scope,
+      hours,
+    },
+  });
+  return readCollection<BusinessHour>(response, ['items', 'businessHours', 'hours', 'data']);
 }
 
 export async function fetchStaffHours(scope: TenantScope, staffId: string) {

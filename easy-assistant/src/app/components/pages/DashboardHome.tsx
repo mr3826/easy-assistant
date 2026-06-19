@@ -1,38 +1,53 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Bell,
   Calendar,
+  CheckCircle2,
   Clock,
-  DollarSign,
   MessageSquare,
+  PlayCircle,
   RefreshCw,
-  TrendingUp,
+  ShieldCheck,
 } from 'lucide-react';
-import {
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { useAuth } from '../../context/AuthContext';
-import { fetchDashboardSummary, type DashboardSummaryMetric, type TenantScope } from '../../api';
+import {
+  fetchAiSettings,
+  fetchBusinessHours,
+  fetchChannels,
+  fetchDashboardSummary,
+  fetchServices,
+  fetchStaff,
+  type DashboardSummaryMetric,
+  type TenantScope,
+} from '../../api';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { LoadingFallback } from '../guards';
+import { useI18n } from '../../i18n';
+
+interface SetupChecklistState {
+  businessDetails: boolean;
+  service: boolean;
+  hours: boolean;
+  teamMember: boolean;
+  connectWhatsApp: boolean;
+  testAssistant: boolean;
+}
+
+const EMPTY_SETUP_CHECKLIST: SetupChecklistState = {
+  businessDetails: false,
+  service: false,
+  hours: false,
+  teamMember: false,
+  connectWhatsApp: false,
+  testAssistant: false,
+};
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
-    return 'Unknown';
+    return 'Not set';
   }
 
   const parsed = new Date(value);
@@ -48,15 +63,19 @@ function formatDateTime(value: string | null | undefined) {
   });
 }
 
-function formatMetricValue(metric: DashboardSummaryMetric) {
-  if (metric.value === null) {
-    return '—';
+function formatMetricValue(metric: DashboardSummaryMetric | undefined) {
+  if (!metric || metric.value === null) {
+    return '0';
   }
 
   switch (metric.format) {
     case 'percent':
       return `${metric.value.toFixed(metric.value % 1 === 0 ? 0 : 1)}%`;
     case 'currency':
+      if (metric.currency === 'BDT') {
+        return `৳${new Intl.NumberFormat('en-BD', { maximumFractionDigits: 0 }).format(metric.value)}`;
+      }
+
       return metric.currency
         ? new Intl.NumberFormat(undefined, { style: 'currency', currency: metric.currency }).format(metric.value)
         : new Intl.NumberFormat().format(metric.value);
@@ -69,60 +88,108 @@ function formatMetricValue(metric: DashboardSummaryMetric) {
   }
 }
 
-function formatMetricDelta(metric: DashboardSummaryMetric) {
-  if (metric.delta === null || metric.delta === undefined) {
-    return null;
-  }
-
-  const absolute = Math.abs(metric.delta);
-  const formatted =
-    metric.format === 'percent'
-      ? `${absolute.toFixed(absolute % 1 === 0 ? 0 : 1)}%`
-      : new Intl.NumberFormat().format(absolute);
-
-  if (metric.delta === 0) {
-    return `0${metric.format === 'percent' ? '%' : ''}`;
-  }
-
-  return `${metric.delta > 0 ? '+' : '-'}${formatted}`;
+function findMetric(metrics: DashboardSummaryMetric[], patterns: string[]) {
+  return metrics.find((metric) => {
+    const key = `${metric.key} ${metric.label}`.toLowerCase();
+    return patterns.some((pattern) => key.includes(pattern));
+  });
 }
 
-function metricTone(metric: DashboardSummaryMetric) {
-  if (metric.trend === 'down') {
-    return 'text-green-600';
-  }
+function SetupChecklist({
+  checklist,
+  setupError,
+}: {
+  checklist: SetupChecklistState;
+  setupError: string;
+}) {
+  const { t } = useI18n();
+  const items = [
+    { labelKey: 'setup.businessDetails', done: checklist.businessDetails, to: '/settings' },
+    { labelKey: 'setup.service', done: checklist.service, to: '/services' },
+    { labelKey: 'setup.hours', done: checklist.hours, to: '/availability' },
+    { labelKey: 'setup.teamMember', done: checklist.teamMember, to: '/staff' },
+    { labelKey: 'setup.connectWhatsApp', done: checklist.connectWhatsApp, to: '/channels' },
+    { labelKey: 'setup.testAssistant', done: checklist.testAssistant, to: '/ai-settings' },
+  ];
+  const completed = items.filter((item) => item.done).length;
+  const total = items.length;
+  const progress = Math.round((completed / total) * 100);
 
-  if (metric.trend === 'flat') {
-    return 'text-gray-500';
-  }
-
-  return metric.trend === 'up' ? 'text-blue-600' : 'text-gray-500';
+  return (
+    <Card className="border-emerald-100">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>{t('dashboard.goLiveChecklist')}</CardTitle>
+            <CardDescription>{t('dashboard.goLiveChecklistDescription')}</CardDescription>
+          </div>
+          <Badge className="bg-amber-100 text-amber-700">{t('dashboard.setupProgress', { completed, total })}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+          <div className="h-full rounded-full bg-emerald-600" style={{ width: `${progress}%` }} />
+        </div>
+        {setupError && <p className="text-sm text-amber-700">{setupError}</p>}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {items.map((item) => (
+            <Link key={item.labelKey} to={item.to} className="flex items-center gap-2 text-sm">
+              <CheckCircle2 className={`h-4 w-4 ${item.done ? 'text-emerald-600' : 'text-gray-300'}`} />
+              <span className={item.done ? 'text-gray-700' : 'text-gray-500'}>{t(item.labelKey)}</span>
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button asChild size="sm" className="bg-slate-900 hover:bg-slate-800">
+            <Link to="/channels">{t('dashboard.connectWhatsApp')}</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/ai-settings">
+              <PlayCircle className="mr-2 h-4 w-4" />
+              {t('dashboard.testAssistant')}
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
-function metricIcon(metric: DashboardSummaryMetric) {
-  const key = `${metric.key} ${metric.label}`.toLowerCase();
-
-  if (key.includes('message') || key.includes('conversation')) {
-    return MessageSquare;
-  }
-
-  if (key.includes('revenue') || key.includes('recharge') || key.includes('payment')) {
-    return DollarSign;
-  }
-
-  if (key.includes('reminder') || key.includes('alert') || key.includes('notification')) {
-    return Bell;
-  }
-
-  if (key.includes('time') || key.includes('response') || key.includes('duration')) {
-    return Clock;
-  }
-
-  if (key.includes('rate') || key.includes('conversion') || key.includes('trend')) {
-    return TrendingUp;
-  }
-
-  return Calendar;
+function AssistantStatusCard() {
+  const { t } = useI18n();
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>{t('dashboard.assistantTitle')}</CardTitle>
+          <Badge className="bg-emerald-100 text-emerald-700">{t('dashboard.readyToTest')}</Badge>
+        </div>
+        <CardDescription>{t('dashboard.assistantDescription')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">{t('dashboard.repliesToCustomers')}</span>
+            <span className="font-medium text-gray-900">{t('common.on')}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">{t('dashboard.humanHandoff')}</span>
+            <span className="font-medium text-gray-900">{t('common.on')}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">{t('dashboard.bookingReminders')}</span>
+            <span className="font-medium text-gray-900">{t('common.on')}</span>
+          </div>
+        </div>
+        <Button asChild variant="outline" size="sm" className="w-full">
+          <Link to="/ai-settings">
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            {t('dashboard.checkAssistantReplies')}
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 function appointmentStatusTone(status: string) {
@@ -146,6 +213,7 @@ function appointmentStatusTone(status: string) {
 
 export default function DashboardHome() {
   const { session, isLoading: authLoading } = useAuth();
+  const { t } = useI18n();
   const scope = useMemo<TenantScope | null>(() => {
     if (!session?.organization?.id || !session?.location?.id) {
       return null;
@@ -161,6 +229,51 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [setupChecklist, setSetupChecklist] = useState<SetupChecklistState>(EMPTY_SETUP_CHECKLIST);
+  const [setupError, setSetupError] = useState('');
+
+  const loadSetupChecklist = async (nextScope: TenantScope | null = scope) => {
+    if (!nextScope) {
+      setSetupChecklist(EMPTY_SETUP_CHECKLIST);
+      setSetupError('');
+      return;
+    }
+
+    const [servicesResult, staffResult, hoursResult, channelsResult, aiSettingsResult] = await Promise.allSettled([
+      fetchServices(nextScope),
+      fetchStaff(nextScope),
+      fetchBusinessHours(nextScope),
+      fetchChannels(nextScope),
+      fetchAiSettings(nextScope),
+    ]);
+
+    const organizationName = session?.organization?.name?.trim();
+    const location = session?.location;
+    const hasLocationDetails = Boolean(
+      location?.phone?.trim() || location?.addressLine1?.trim() || location?.city?.trim() || location?.name?.trim()
+    );
+    const services = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
+    const staff = staffResult.status === 'fulfilled' ? staffResult.value : [];
+    const hours = hoursResult.status === 'fulfilled' ? hoursResult.value : [];
+    const channels = channelsResult.status === 'fulfilled' ? channelsResult.value : [];
+    const aiSettings = aiSettingsResult.status === 'fulfilled' ? aiSettingsResult.value : null;
+
+    setSetupChecklist({
+      businessDetails: Boolean(organizationName && hasLocationDetails),
+      service: services.some((service) => service.active),
+      hours: hours.some((hour) => hour.active),
+      teamMember: staff.some((member) => member.active),
+      connectWhatsApp: channels.some(
+        (channel) => channel.type === 'whatsapp' && channel.active && Boolean(channel.displayPhoneNumber?.trim())
+      ),
+      testAssistant: Boolean(aiSettings?.greetingMessage?.trim()),
+    });
+
+    const partialFailure = [servicesResult, staffResult, hoursResult, channelsResult, aiSettingsResult].some(
+      (result) => result.status === 'rejected'
+    );
+    setSetupError(partialFailure ? t('dashboard.setupCouldNotLoad') : '');
+  };
 
   const loadSummary = async (nextScope: TenantScope | null = scope, showSpinner = false) => {
     if (!nextScope) {
@@ -183,11 +296,15 @@ export default function DashboardHome() {
       const nextSummary = await fetchDashboardSummary(nextScope);
       setSummary(nextSummary);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Unable to load the dashboard summary.');
+      setError(loadError instanceof Error ? loadError.message : t('dashboard.retry'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const loadDashboard = async (nextScope: TenantScope | null = scope, showSpinner = false) => {
+    await Promise.all([loadSummary(nextScope, showSpinner), loadSetupChecklist(nextScope)]);
   };
 
   useEffect(() => {
@@ -198,7 +315,7 @@ export default function DashboardHome() {
         return;
       }
 
-      await loadSummary(scope, true);
+      await loadDashboard(scope, true);
     };
 
     void run();
@@ -210,207 +327,138 @@ export default function DashboardHome() {
   }, [scope]);
 
   if (authLoading) {
-    return <LoadingFallback message="Loading dashboard..." />;
+    return <LoadingFallback message={t('common.loadingHome')} />;
   }
 
   if (!scope) {
     return (
       <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
-        <p className="text-sm text-gray-600">Sign in to view the live dashboard summary for this location.</p>
+        <p className="text-sm text-gray-600">{t('dashboard.signInMissing')}</p>
       </div>
     );
   }
 
   if (loading && !summary) {
-    return <LoadingFallback message="Loading dashboard summary..." />;
+    return <LoadingFallback message={t('common.loadingToday')} />;
   }
 
   const metrics = summary?.metrics ?? [];
-  const trendData = summary?.bookingTrend ?? [];
-  const channelData = summary?.channelDistribution ?? [];
   const recentAppointments = summary?.recentAppointments ?? [];
-  const hasTrendData = trendData.length > 0;
-  const hasChannelData = channelData.length > 0;
   const hasAppointments = recentAppointments.length > 0;
+  const bookingMetric = findMetric(metrics, ['booking']);
+  const repliedMetric = findMetric(metrics, ['customers replied', 'message', 'conversation']);
+  const missedMetric = findMetric(metrics, ['missed']);
+
+  const actionCards = [
+    {
+      label: t('dashboard.bookings'),
+      value: formatMetricValue(bookingMetric),
+      helper: t('dashboard.newBookingsToday'),
+      icon: Calendar,
+      to: '/appointments',
+    },
+    {
+      label: t('dashboard.customerChats'),
+      value: formatMetricValue(repliedMetric),
+      helper: t('dashboard.repliesToCustomers'),
+      icon: MessageSquare,
+      to: '/conversations',
+    },
+    {
+      label: t('dashboard.missedInquiriesSaved'),
+      value: formatMetricValue(missedMetric),
+      helper: t('dashboard.repliesToCustomers'),
+      icon: Clock,
+      to: '/conversations',
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <h1>Dashboard</h1>
-          <p className="text-gray-500">Live summary from persisted bookings, conversations, and reminders.</p>
+          <h1>{t('dashboard.title')}</h1>
+          <p className="text-gray-500">{t('dashboard.subtitle')}</p>
           {summary?.generatedAt && (
-            <p className="text-xs text-gray-400">Last updated {formatDateTime(summary.generatedAt)}</p>
+            <p className="text-xs text-gray-400">{t('dashboard.lastUpdated', { time: formatDateTime(summary.generatedAt) })}</p>
           )}
         </div>
 
-        <Button variant="outline" size="sm" onClick={() => void loadSummary(scope, true)} disabled={loading || refreshing}>
+        <Button variant="outline" size="sm" onClick={() => void loadDashboard(scope, true)} disabled={loading || refreshing}>
           <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          {refreshing ? t('common.refreshing') : t('dashboard.refresh')}
         </Button>
       </div>
 
       {error && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span role="alert">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => void loadSummary(scope, true)} disabled={loading || refreshing}>
-            Retry
+          <Button variant="outline" size="sm" onClick={() => void loadDashboard(scope, true)} disabled={loading || refreshing}>
+            {t('dashboard.retry')}
           </Button>
         </div>
       )}
 
       {!error && refreshing && (
         <p className="text-sm text-gray-500" role="status" aria-live="polite">
-          Refreshing dashboard data...
+          {t('common.refreshing')}
         </p>
       )}
 
-      {metrics.length === 0 ? (
-        <Card>
-          <CardContent className="px-6 py-10 text-sm text-gray-500">
-            No dashboard metrics are available for this location yet.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric) => {
-            const Icon = metricIcon(metric);
-            const delta = formatMetricDelta(metric);
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {actionCards.map((card) => {
+          const Icon = card.icon;
 
-            return (
-              <Card key={metric.key}>
+          return (
+            <Link key={card.label} to={card.to} className="block">
+              <Card className="h-full transition-colors hover:border-emerald-200 hover:bg-emerald-50/40">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm text-gray-600">{metric.label}</CardTitle>
-                  <Icon className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-sm text-gray-600">{card.label}</CardTitle>
+                  <Icon className="h-5 w-5 text-emerald-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatMetricValue(metric)}</div>
-                  {delta ? (
-                    <p className={`mt-1 flex items-center gap-1 text-xs ${metricTone(metric)}`}>
-                      {metric.trend === 'down' ? (
-                        <ArrowDownRight className="h-3 w-3" />
-                      ) : (
-                        <ArrowUpRight className="h-3 w-3" />
-                      )}
-                      <span>{delta}</span>
-                      <span className="text-gray-500">{metric.deltaLabel ?? 'from the previous period'}</span>
-                    </p>
-                  ) : metric.deltaLabel ? (
-                    <p className="mt-1 text-xs text-gray-500">{metric.deltaLabel}</p>
-                  ) : null}
+                  <div className="text-3xl font-bold">{card.value}</div>
+                  <p className="mt-1 text-xs text-gray-500">{card.helper}</p>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      )}
+            </Link>
+          );
+        })}
+      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Booking Trend</CardTitle>
-            <CardDescription>Live appointment volume from the backend summary.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {hasTrendData ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="label" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="bookings" stroke="#2563eb" strokeWidth={2} name="Bookings" />
-                  {trendData.some((point) => point.completed !== null) && (
-                    <Line type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2} name="Completed" />
-                  )}
-                  {trendData.some((point) => point.cancelled !== null) && (
-                    <Line type="monotone" dataKey="cancelled" stroke="#ef4444" strokeWidth={2} name="Cancelled" />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
-                No booking trend data returned by the summary endpoint.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Channel Distribution</CardTitle>
-            <CardDescription>Bookings grouped by inbound channel.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {hasChannelData ? (
-              <>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={channelData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {channelData.map((entry, index) => (
-                        <Cell key={`${entry.name}-${index}`} fill={entry.color ?? '#2563eb'} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-4 space-y-3">
-                  {channelData.map((channel) => (
-                    <div key={channel.name} className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: channel.color ?? '#2563eb' }} />
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-600">{channel.name}</p>
-                        <p className="font-medium">{new Intl.NumberFormat().format(channel.value)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="flex min-h-[300px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
-                No channel distribution data returned by the summary endpoint.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <SetupChecklist checklist={setupChecklist} setupError={setupError} />
+        <AssistantStatusCard />
       </div>
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Recent Appointments</CardTitle>
-            <CardDescription>Latest booked records returned by the dashboard summary.</CardDescription>
+            <CardTitle>{t('dashboard.recentBookings')}</CardTitle>
+            <CardDescription>{t('dashboard.recentBookingsDescription')}</CardDescription>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/appointments">{t('dashboard.openBookings')}</Link>
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Staff</TableHead>
-                <TableHead>Channel</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t('dashboard.customer')}</TableHead>
+                <TableHead>{t('dashboard.service')}</TableHead>
+                <TableHead>{t('dashboard.staff')}</TableHead>
+                <TableHead>{t('dashboard.time')}</TableHead>
+                <TableHead>{t('dashboard.status')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {hasAppointments ? (
                 recentAppointments.map((appointment) => (
                   <TableRow key={appointment.id}>
-                    <TableCell>{appointment.customerName ?? 'Unknown customer'}</TableCell>
-                    <TableCell>{appointment.serviceName ?? 'Unknown service'}</TableCell>
-                    <TableCell>{appointment.staffName ?? 'Unassigned'}</TableCell>
-                    <TableCell>{appointment.channelName ?? 'Unlinked channel'}</TableCell>
+                    <TableCell>{appointment.customerName ?? t('dashboard.customer')}</TableCell>
+                    <TableCell>{appointment.serviceName ?? t('appointments.serviceNotSelected')}</TableCell>
+                    <TableCell>{appointment.staffName ?? t('appointments.unassigned')}</TableCell>
                     <TableCell>{formatDateTime(appointment.startTime)}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className={appointmentStatusTone(String(appointment.status))}>
@@ -421,8 +469,8 @@ export default function DashboardHome() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-gray-500">
-                    No recent appointments were returned by the summary endpoint.
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-gray-500">
+                    {t('dashboard.noBookingsYet')}
                   </TableCell>
                 </TableRow>
               )}

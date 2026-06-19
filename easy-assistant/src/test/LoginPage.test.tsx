@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import LoginPage from '../app/components/pages/LoginPage';
 import { AuthProvider } from '../app/context/AuthContext';
 import AuthGuard from '../app/components/guards/AuthGuard';
+import { I18nProvider } from '../app/i18n';
 import { click, getByTestId, getByText, render, waitFor } from './test-utils';
 
 function LocationProbe() {
@@ -38,11 +39,13 @@ describe('LoginPage', () => {
 
   it('renders the login form and toggles password visibility', () => {
     const { container } = render(
-      <AuthProvider>
-        <MemoryRouter>
-          <LoginPage />
-        </MemoryRouter>
-      </AuthProvider>,
+      <I18nProvider>
+        <AuthProvider>
+          <MemoryRouter>
+            <LoginPage />
+          </MemoryRouter>
+        </AuthProvider>
+      </I18nProvider>,
     );
 
     const emailInput = container.querySelector<HTMLInputElement>('#email');
@@ -80,22 +83,24 @@ describe('LoginPage', () => {
     });
 
     const { container } = render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/login']}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/dashboard"
-              element={
-                <AuthGuard>
-                  <h1>Private dashboard</h1>
-                  <LocationProbe />
-                </AuthGuard>
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </AuthProvider>,
+      <I18nProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <AuthGuard>
+                    <h1>Private dashboard</h1>
+                    <LocationProbe />
+                  </AuthGuard>
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </I18nProvider>,
     );
 
     const emailInput = container.querySelector<HTMLInputElement>('#email');

@@ -86,7 +86,6 @@ export function createAuthSession(overrides: Partial<AuthSession> = {}): AuthSes
     organization,
     location,
     nextRoute: overrides.nextRoute ?? '/dashboard',
-    requiresOnboarding: overrides.requiresOnboarding ?? false,
   };
 }
 

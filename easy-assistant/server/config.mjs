@@ -36,7 +36,10 @@ export const config = {
   databasePath: process.env.EASY_ASSISTANT_DB_PATH ?? join(serverDir, 'data', 'easy-assistant.sqlite'),
   defaultTimezone: process.env.DEFAULT_TIMEZONE ?? 'Asia/Dhaka',
   whatsappCredentialSecret:
-    process.env.WHATSAPP_CREDENTIAL_SECRET ?? process.env.APP_SECRET ?? 'easy-assistant-dev-whatsapp-secret',
+    process.env.WHATSAPP_CREDENTIAL_SECRET
+    ?? process.env.WHATSAPP_ENCRYPTION_KEY
+    ?? process.env.APP_SECRET
+    ?? 'easy-assistant-dev-whatsapp-secret',
   cookieName: process.env.SESSION_COOKIE_NAME ?? 'easy_assistant_session',
   cookiePath: process.env.SESSION_COOKIE_PATH ?? '/',
   cookieDomain: process.env.SESSION_COOKIE_DOMAIN ?? undefined,
@@ -46,7 +49,6 @@ export const config = {
   maxBodyBytes: readIntEnv('MAX_BODY_BYTES', 1024 * 1024),
   corsOrigin: process.env.CORS_ORIGIN ?? undefined,
   nodeEnv: process.env.NODE_ENV ?? 'development',
-  whatsappCredentialSecret: process.env.WHATSAPP_CREDENTIAL_SECRET ?? process.env.WHATSAPP_ENCRYPTION_KEY ?? undefined,
 };
 
 export const serverDirPath = serverDir;

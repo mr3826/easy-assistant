@@ -72,7 +72,6 @@ describe('auth api helpers', () => {
           updatedAt: '2026-06-11T00:15:00+06:00',
         },
         nextRoute: '/dashboard',
-        requiresOnboarding: false,
       }),
     );
 
@@ -107,7 +106,6 @@ describe('auth api helpers', () => {
       organization: null,
       location: null,
       nextRoute: '/dashboard',
-      requiresOnboarding: false,
     };
 
     fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: 'Missing session' }));
@@ -178,8 +176,7 @@ describe('auth api helpers', () => {
           createdAt: '2026-06-11T00:00:00+06:00',
           updatedAt: '2026-06-11T00:00:00+06:00',
         },
-        nextRoute: '/onboarding',
-        requiresOnboarding: true,
+        nextRoute: '/dashboard',
       }),
     );
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
@@ -194,7 +191,6 @@ describe('auth api helpers', () => {
     await logoutWithApi();
 
     expect(signupSession.memberships).toHaveLength(1);
-    expect(signupSession.requiresOnboarding).toBe(true);
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://localhost:3000/api/auth/signup', {
       method: 'POST',
       credentials: 'include',

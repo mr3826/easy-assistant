@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Edit, Trash2, Clock, DollarSign } from 'lucide-react';
+import { Archive, Plus, Edit, Clock, DollarSign } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -10,17 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Textarea } from '../ui/textarea';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../i18n';
 import {
   createService,
   deleteService,
-  fetchAppointments,
   fetchServices,
   fetchStaff,
-  mapServiceStaffFromAppointments,
+  fetchStaffServices,
   updateService,
   type TenantScope,
 } from '../../api';
-import type { Appointment, Service, Staff } from '../../types';
+import type { Service } from '../../types';
 
 interface ServiceCard {
   id: string;
@@ -41,66 +41,9 @@ interface ServiceDraft {
   price: string;
   description: string;
   active: boolean;
-  staffName: string;
 }
 
-const fallbackSeed: ServiceCard[] = [
-  {
-    id: 'seed-service-1',
-    name: 'Haircut & Style',
-    category: 'Hair Services',
-    durationMinutes: 60,
-    price: 45,
-    description: 'Precision haircut and styling.',
-    active: true,
-    staffNames: ['Emily Chen'],
-    currency: 'USD',
-  },
-  {
-    id: 'seed-service-2',
-    name: 'Hair Coloring',
-    category: 'Hair Services',
-    durationMinutes: 120,
-    price: 95,
-    description: 'Root touch-up and full color refresh.',
-    active: true,
-    staffNames: ['Emily Chen'],
-    currency: 'USD',
-  },
-  {
-    id: 'seed-service-3',
-    name: 'Medical Consultation',
-    category: 'Healthcare',
-    durationMinutes: 30,
-    price: 75,
-    description: 'General consultation and follow-up triage.',
-    active: true,
-    staffNames: ['Dr. Michael Smith'],
-    currency: 'USD',
-  },
-  {
-    id: 'seed-service-4',
-    name: 'Follow-up Visit',
-    category: 'Healthcare',
-    durationMinutes: 15,
-    price: 35,
-    description: 'Quick review visit after treatment.',
-    active: true,
-    staffNames: ['Dr. Michael Smith'],
-    currency: 'USD',
-  },
-  {
-    id: 'seed-service-5',
-    name: 'Full Body Spa',
-    category: 'Spa & Wellness',
-    durationMinutes: 90,
-    price: 120,
-    description: 'Full spa treatment with exfoliation.',
-    active: true,
-    staffNames: ['Lisa Brown'],
-    currency: 'USD',
-  },
-];
+type ActionTone = 'success' | 'error' | 'info';
 
 function mapServiceCard(service: Service, staffNames: string[]): ServiceCard {
   return {
@@ -116,8 +59,27 @@ function mapServiceCard(service: Service, staffNames: string[]): ServiceCard {
   };
 }
 
-function mapFallbackCard(card: ServiceCard): ServiceCard {
-  return { ...card, staffNames: [...card.staffNames] };
+function categoryLabel(category: string, t: (path: string) => string) {
+  switch (category) {
+    case 'Hair Services':
+      return t('services.categoryHair');
+    case 'Skin Care':
+      return t('services.categorySkin');
+    case 'Makeup':
+      return t('services.categoryMakeup');
+    case 'Spa & Wellness':
+      return t('services.categorySpaWellness');
+    case 'Massage':
+      return t('services.categoryMassage');
+    case 'Healthcare':
+      return t('services.categoryHealthcare');
+    case 'Fitness':
+      return t('services.categoryFitness');
+    case 'Uncategorized':
+      return t('services.uncategorized');
+    default:
+      return category || t('services.uncategorized');
+  }
 }
 
 function buildDraft(service?: ServiceCard | null): ServiceDraft {
@@ -125,21 +87,28 @@ function buildDraft(service?: ServiceCard | null): ServiceDraft {
     name: service?.name ?? '',
     category: service?.category ?? '',
     durationMinutes: service ? String(service.durationMinutes) : '60',
-    price: service ? String(service.price) : '50',
+    price: service ? String(service.price) : '1000',
     description: service?.description ?? '',
     active: service?.active ?? true,
-    staffName: service?.staffNames[0] ?? '__none__',
   };
+}
+
+function formatPrice(amount: number, currency: string) {
+  if (currency === 'BDT') {
+    return `৳${new Intl.NumberFormat('en-BD', { maximumFractionDigits: 0 }).format(amount)}`;
+  }
+
+  return `${currency} ${new Intl.NumberFormat().format(amount)}`;
 }
 
 export default function ServicesSetup() {
   const { session } = useAuth();
-  const [services, setServices] = useState<ServiceCard[]>(fallbackSeed);
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const { t } = useI18n();
+  const [services, setServices] = useState<ServiceCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
+  const [actionTone, setActionTone] = useState<ActionTone>('info');
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -156,19 +125,7 @@ export default function ServicesSetup() {
     };
   }, [session]);
 
-  const staffById = useMemo(() => new Map(staff.map((member) => [member.id, member])), [staff]);
-
-  const serviceView = useMemo(
-    () =>
-      services.map((service) => ({
-        ...service,
-        staffNames:
-          service.staffNames.length > 0
-            ? service.staffNames
-            : mapServiceStaffFromAppointments(service.id, appointments, staffById),
-      })),
-    [appointments, services, staffById]
-  );
+  const serviceView = services;
 
   useEffect(() => {
     let active = true;
@@ -181,31 +138,39 @@ export default function ServicesSetup() {
 
       setLoading(true);
       setActionStatus('');
+      setActionTone('info');
 
-      const [servicesResult, staffResult, appointmentsResult] = await Promise.allSettled([
+      const [servicesResult, staffResult] = await Promise.allSettled([
         fetchServices(scope),
         fetchStaff(scope),
-        fetchAppointments(scope),
       ]);
 
       if (!active) {
         return;
       }
 
-      const serviceRows =
-        servicesResult.status === 'fulfilled'
-          ? servicesResult.value.map((service) => mapServiceCard(service, []))
-          : fallbackSeed.map(mapFallbackCard);
+      const serviceRows = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
       const staffRows = staffResult.status === 'fulfilled' ? staffResult.value : [];
-      const appointmentRows = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value : [];
+      const staffNamesByServiceId = new Map<string, string[]>();
 
-      setServices(serviceRows);
-      setStaff(staffRows);
-      setAppointments(appointmentRows);
-      setIsLive(servicesResult.status === 'fulfilled' || staffResult.status === 'fulfilled' || appointmentsResult.status === 'fulfilled');
+      await Promise.all(
+        staffRows.map(async (member) => {
+          const assignments = await fetchStaffServices(scope, member.id).catch(() => []);
+          assignments
+            .filter((assignment) => assignment.active)
+            .forEach((assignment) => {
+              const names = staffNamesByServiceId.get(assignment.serviceId) ?? [];
+              staffNamesByServiceId.set(assignment.serviceId, [...names, member.name]);
+            });
+        })
+      );
 
-      if (servicesResult.status !== 'fulfilled' || staffResult.status !== 'fulfilled' || appointmentsResult.status !== 'fulfilled') {
-        setActionStatus('Live service data is not available yet, so this screen is showing the local fallback snapshot.');
+      setServices(serviceRows.map((service) => mapServiceCard(service, staffNamesByServiceId.get(service.id) ?? [])));
+      setIsLive(servicesResult.status === 'fulfilled');
+
+      if (servicesResult.status !== 'fulfilled' || staffResult.status !== 'fulfilled') {
+        setActionStatus(t('services.liveServicesUnavailable'));
+        setActionTone('error');
       }
 
       setLoading(false);
@@ -216,7 +181,7 @@ export default function ServicesSetup() {
     return () => {
       active = false;
     };
-  }, [scope]);
+  }, [scope, t]);
 
   const stats = useMemo(() => {
     const total = serviceView.length;
@@ -241,7 +206,8 @@ export default function ServicesSetup() {
 
   const saveService = async () => {
     if (!scope) {
-      setActionStatus('Sign in context is missing tenant scope, so the form cannot save yet.');
+      setActionStatus(t('services.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
@@ -255,7 +221,20 @@ export default function ServicesSetup() {
     };
 
     if (!payload.name) {
-      setActionStatus('Service name is required.');
+      setActionStatus(t('services.serviceNameRequired'));
+      setActionTone('error');
+      return;
+    }
+
+    if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes <= 0) {
+      setActionStatus(t('services.durationRequired'));
+      setActionTone('error');
+      return;
+    }
+
+    if (!Number.isFinite(payload.price) || payload.price < 0) {
+      setActionStatus(t('services.priceRequired'));
+      setActionTone('error');
       return;
     }
 
@@ -265,98 +244,65 @@ export default function ServicesSetup() {
       if (editingServiceId) {
         const response = await updateService(scope, editingServiceId, payload);
         const updated = response ?? null;
-        if (updated) {
-          setServices((current) =>
-            current.map((service) =>
-              service.id === editingServiceId
-                ? mapServiceCard(updated, service.staffNames)
-                : service
-            )
-          );
+        if (!updated) {
+          throw new Error(t('services.saveFailed'));
         }
-        setActionStatus('Service updated through the API.');
+        setServices((current) =>
+          current.map((service) =>
+            service.id === editingServiceId
+              ? mapServiceCard(updated, service.staffNames)
+              : service
+          )
+        );
+        setActionStatus(t('services.savedThroughApi'));
+        setActionTone('success');
       } else {
         const response = await createService(scope, payload);
-        if (response) {
-          setServices((current) => [
-            mapServiceCard(response, draft.staffName !== '__none__' ? [draft.staffName] : []),
-            ...current,
-          ]);
-        } else {
-          setServices((current) => [
-            {
-              id: `local-${Date.now()}`,
-              name: payload.name,
-              category: payload.category ?? 'Uncategorized',
-              durationMinutes: payload.durationMinutes,
-              price: payload.price,
-              description: payload.description ?? '',
-              active: payload.active,
-              staffNames: draft.staffName !== '__none__' ? [draft.staffName] : [],
-              currency: 'USD',
-            },
-            ...current,
-          ]);
+        if (!response) {
+          throw new Error(t('services.saveFailed'));
         }
-        setActionStatus('Service created through the API.');
+        setServices((current) => [
+          mapServiceCard(response, []),
+          ...current,
+        ]);
+        setActionStatus(t('services.savedThroughApi'));
+        setActionTone('success');
       }
 
       setServiceDialogOpen(false);
-    } catch {
-      setServices((current) => {
-        if (editingServiceId) {
-          return current.map((service) =>
-            service.id === editingServiceId
-              ? {
-                  ...service,
-                  ...payload,
-                  category: payload.category ?? 'Uncategorized',
-                  description: payload.description ?? '',
-                }
-              : service
-          );
-        }
-
-        return [
-          {
-            id: `local-${Date.now()}`,
-            name: payload.name,
-            category: payload.category ?? 'Uncategorized',
-            durationMinutes: payload.durationMinutes,
-            price: payload.price,
-            description: payload.description ?? '',
-            active: payload.active,
-            staffNames: draft.staffName !== '__none__' ? [draft.staffName] : [],
-            currency: 'USD',
-          },
-          ...current,
-        ];
-      });
-      setActionStatus('Saved locally only because the backend mutation is not ready yet.');
-      setServiceDialogOpen(false);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('services.saveFailed'));
+      setActionTone('error');
     } finally {
       setSaving(false);
     }
   };
 
-  const removeService = async (service: ServiceCard) => {
+  const archiveService = async (service: ServiceCard) => {
     if (!scope) {
-      setActionStatus('Tenant scope is not available yet, so delete remains local-only.');
+      setActionStatus(t('services.tenantScopeMissing'));
+      setActionTone('error');
       return;
     }
 
-    const confirmed = window.confirm(`Delete ${service.name}?`);
+    const confirmed = window.confirm(t('services.archiveConfirm', { name: service.name }));
     if (!confirmed) {
       return;
     }
 
     try {
-      await deleteService(scope, service.id);
-      setServices((current) => current.filter((item) => item.id !== service.id));
-      setActionStatus(`${service.name} deleted through the API.`);
-    } catch {
-      setServices((current) => current.filter((item) => item.id !== service.id));
-      setActionStatus(`${service.name} removed locally only.`);
+      const archived = await deleteService(scope, service.id);
+      if (!archived) {
+        throw new Error(t('services.archiveFailed', { name: service.name }));
+      }
+      setServices((current) =>
+        current.map((item) => (item.id === service.id ? mapServiceCard(archived, item.staffNames) : item))
+      );
+      setActionStatus(t('services.archivedThroughApi', { name: service.name }));
+      setActionTone('success');
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : t('services.archiveFailed', { name: service.name }));
+      setActionTone('error');
     }
   };
 
@@ -364,28 +310,32 @@ export default function ServicesSetup() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1>Services Setup</h1>
-          <p className="text-gray-500">Manage your services, pricing, and availability</p>
+          <h1>{t('services.title')}</h1>
+          <p className="text-gray-500">{t('services.subtitle')}</p>
         </div>
 
         <Button className="bg-blue-600 hover:bg-blue-700" onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Service
+          {t('services.addService')}
         </Button>
       </div>
 
       {actionStatus && (
-        <p className="text-sm text-green-700" role="status" aria-live="polite">
+        <p
+          className={`text-sm ${actionTone === 'error' ? 'text-red-700' : actionTone === 'success' ? 'text-green-700' : 'text-gray-600'}`}
+          role="status"
+          aria-live="polite"
+        >
           {actionStatus}
         </p>
       )}
-      {loading && <p className="text-sm text-gray-500">Loading services from the current tenant...</p>}
-      {!isLive && !loading && <p className="text-xs text-gray-500">Live API data is not available yet, so the local snapshot is still visible.</p>}
+      {loading && <p className="text-sm text-gray-500">{t('services.loading')}</p>}
+      {!isLive && !loading && <p className="text-xs text-gray-500">{t('services.noLiveData')}</p>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Total Services</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('services.totalServices')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -393,7 +343,7 @@ export default function ServicesSetup() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Active Services</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('services.activeServices')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.activeCount}</div>
@@ -401,7 +351,7 @@ export default function ServicesSetup() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Avg. Duration</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('services.avgDuration')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgDuration} min</div>
@@ -409,29 +359,29 @@ export default function ServicesSetup() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-gray-600">Avg. Price</CardTitle>
+            <CardTitle className="text-sm text-gray-600">{t('services.avgPrice')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.avgPrice}</div>
+            <div className="text-2xl font-bold">৳{new Intl.NumberFormat('en-BD').format(stats.avgPrice)}</div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Services</CardTitle>
+          <CardTitle>{t('services.allServices')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Service Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Staff</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t('services.serviceName')}</TableHead>
+                <TableHead>{t('services.category')}</TableHead>
+                <TableHead>{t('services.duration')}</TableHead>
+                <TableHead>{t('services.price')}</TableHead>
+                <TableHead>{t('services.staff')}</TableHead>
+                <TableHead>{t('services.status')}</TableHead>
+                <TableHead>{t('services.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -440,22 +390,22 @@ export default function ServicesSetup() {
                   <TableCell>
                     <div>
                       <p className="font-medium">{service.name}</p>
-                      <p className="text-xs text-gray-500">{service.description || 'API-backed service record'}</p>
+                      <p className="text-xs text-gray-500">{service.description || t('services.apiBackedServiceRecord')}</p>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{service.category}</Badge>
+                    <Badge variant="outline">{categoryLabel(service.category, t)}</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-gray-400" />
-                      {service.durationMinutes} min
+                      {service.durationMinutes} {t('appointments.minutes')}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-gray-400" />
-                      {service.currency} {service.price}
+                      {formatPrice(service.price, service.currency)}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -467,9 +417,7 @@ export default function ServicesSetup() {
                           </Badge>
                         ))
                       ) : (
-                        <Badge variant="secondary" className="text-xs">
-                          Unassigned
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">{t('services.unassigned')}</Badge>
                       )}
                     </div>
                   </TableCell>
@@ -478,7 +426,7 @@ export default function ServicesSetup() {
                       variant={service.active ? 'default' : 'secondary'}
                       className={service.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}
                     >
-                      {service.active ? 'Active' : 'Inactive'}
+                      {service.active ? t('services.active') : t('services.inactive')}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -487,17 +435,17 @@ export default function ServicesSetup() {
                         variant="ghost"
                         size="sm"
                         onClick={() => openEditDialog(service)}
-                        aria-label={`Edit ${service.name}`}
+                        aria-label={`${t('services.editService')} ${service.name}`}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => void removeService(service)}
-                        aria-label={`Delete ${service.name}`}
+                        onClick={() => void archiveService(service)}
+                        aria-label={`${t('services.archiveService')} ${service.name}`}
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Archive className="h-4 w-4 text-gray-500" />
                       </Button>
                     </div>
                   </TableCell>
@@ -511,39 +459,41 @@ export default function ServicesSetup() {
       <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingServiceId ? 'Edit Service' : 'Add New Service'}</DialogTitle>
+            <DialogTitle>{editingServiceId ? t('services.editService') : t('services.addServiceDialog')}</DialogTitle>
             <DialogDescription>
-              {editingServiceId ? 'Update the service record and save it back to the API.' : 'Create a new service for the current location.'}
+              {editingServiceId ? t('services.editServiceDescription') : t('services.createServiceDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="service-name">Service Name</Label>
+              <Label htmlFor="service-name">{t('services.serviceName')}</Label>
               <Input
                 id="service-name"
                 value={draft.name}
                 onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-                placeholder="e.g., Haircut, Massage"
+                placeholder={t('services.serviceNamePlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="service-category">Category</Label>
+              <Label htmlFor="service-category">{t('services.category')}</Label>
               <Select value={draft.category} onValueChange={(value) => setDraft((current) => ({ ...current, category: value }))}>
                 <SelectTrigger id="service-category">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={t('common.select')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Hair Services">Hair Services</SelectItem>
-                  <SelectItem value="Spa & Wellness">Spa & Wellness</SelectItem>
-                  <SelectItem value="Massage">Massage</SelectItem>
-                  <SelectItem value="Healthcare">Healthcare</SelectItem>
-                  <SelectItem value="Fitness">Fitness</SelectItem>
+                  <SelectItem value="Hair Services">{t('services.categoryHair')}</SelectItem>
+                  <SelectItem value="Skin Care">{t('services.categorySkin')}</SelectItem>
+                  <SelectItem value="Makeup">{t('services.categoryMakeup')}</SelectItem>
+                  <SelectItem value="Spa & Wellness">{t('services.categorySpaWellness')}</SelectItem>
+                  <SelectItem value="Massage">{t('services.categoryMassage')}</SelectItem>
+                  <SelectItem value="Healthcare">{t('services.categoryHealthcare')}</SelectItem>
+                  <SelectItem value="Fitness">{t('services.categoryFitness')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="service-duration">Duration (min)</Label>
+                <Label htmlFor="service-duration">{t('services.duration')}</Label>
                 <Input
                   id="service-duration"
                   type="number"
@@ -554,7 +504,7 @@ export default function ServicesSetup() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="service-price">Price</Label>
+              <Label htmlFor="service-price">{t('services.priceLabel')}</Label>
                 <Input
                   id="service-price"
                   type="number"
@@ -566,41 +516,22 @@ export default function ServicesSetup() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="service-description">Description</Label>
+              <Label htmlFor="service-description">{t('services.description')}</Label>
               <Textarea
                 id="service-description"
                 value={draft.description}
                 onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Service description..."
+                placeholder={t('services.descriptionPlaceholder')}
                 rows={3}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="service-staff">Preview Staff Link</Label>
-              <Select value={draft.staffName} onValueChange={(value) => setDraft((current) => ({ ...current, staffName: value }))}>
-                <SelectTrigger id="service-staff">
-                  <SelectValue placeholder="Preview staff link" />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="__none__">Unassigned</SelectItem>
-                  {staff.map((member) => (
-                    <SelectItem key={member.id} value={member.name}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500">
-                Staff assignment is shown locally until the backend exposes the join model write endpoint.
-              </p>
             </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline">{t('common.cancel')}</Button>
             </DialogClose>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => void saveService()} disabled={saving}>
-              {saving ? 'Saving...' : editingServiceId ? 'Save Changes' : 'Add Service'}
+            <Button className="bg-slate-900 hover:bg-slate-800" onClick={() => void saveService()} disabled={saving}>
+              {saving ? t('common.saving') : editingServiceId ? t('services.saveChanges') : t('services.addService')}
             </Button>
           </DialogFooter>
         </DialogContent>
